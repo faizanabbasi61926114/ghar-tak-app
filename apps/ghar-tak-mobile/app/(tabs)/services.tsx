@@ -1,0 +1,206 @@
+import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React from "react";
+import {
+  FlatList,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useColors } from "@/hooks/useColors";
+import { useData } from "@/context/DataContext";
+
+export default function ServicesScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === "web";
+  const { serviceCategories, serviceProviders } = useData();
+
+  const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      paddingTop: isWeb ? 67 : insets.top + 16,
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    titleIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      backgroundColor: "#f5f0ff",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: "700" as const,
+      color: colors.foreground,
+      fontFamily: "Inter_700Bold",
+    },
+    subtitle: {
+      fontSize: 13,
+      color: colors.mutedForeground,
+      fontFamily: "Inter_400Regular",
+      marginTop: 4,
+      marginLeft: 46,
+    },
+    content: { padding: 16 },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: "600" as const,
+      color: colors.foreground,
+      fontFamily: "Inter_600SemiBold",
+      marginBottom: 14,
+      marginTop: 4,
+    },
+
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    catCard: {
+      width: "30.5%" as const,
+      aspectRatio: 1,
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 10,
+    },
+    iconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "#f5f0ff",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    catName: {
+      fontSize: 11,
+      color: colors.foreground,
+      fontFamily: "Inter_500Medium",
+      textAlign: "center" as const,
+      marginTop: 8,
+      lineHeight: 15,
+    },
+
+    providerSection: { marginTop: 24 },
+    provCard: {
+      flexDirection: "row",
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      gap: 12,
+    },
+    provAvatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: "#f5f0ff",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    provInfo: { flex: 1 },
+    provName: {
+      fontSize: 15,
+      fontWeight: "600" as const,
+      color: colors.foreground,
+      fontFamily: "Inter_600SemiBold",
+    },
+    provCat: {
+      fontSize: 13,
+      color: colors.mutedForeground,
+      fontFamily: "Inter_400Regular",
+      marginTop: 2,
+    },
+    provMeta: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 6 },
+    metaText: { fontSize: 12, color: colors.foreground, fontFamily: "Inter_500Medium" },
+    metaMuted: { fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+
+    footer: { height: isWeb ? 34 : insets.bottom + 80 },
+  });
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <View style={styles.titleIcon}>
+            <Feather name="briefcase" size={18} color={colors.primary} />
+          </View>
+          <Text style={styles.title}>Services</Text>
+        </View>
+        <Text style={styles.subtitle}>Find local professionals</Text>
+      </View>
+
+      <FlatList
+        data={[{ key: "content" }]}
+        keyExtractor={(item) => item.key}
+        renderItem={() => (
+          <View style={styles.content}>
+            {/* Categories grid — mirrors web's ServiceCategoriesSection */}
+            <Text style={styles.sectionTitle}>Browse by Category</Text>
+            <View style={styles.grid}>
+              {serviceCategories.map((cat) => (
+                <Pressable
+                  key={cat.id}
+                  style={styles.catCard}
+                  onPress={() =>
+                    router.push({ pathname: "/service/[category]", params: { category: cat.id } })
+                  }
+                >
+                  <View style={styles.iconWrap}>
+                    <Feather name={cat.icon as any} size={20} color={colors.primary} />
+                  </View>
+                  <Text style={styles.catName} numberOfLines={2}>{cat.name}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Featured Providers — mirrors web's NearbyProvidersSection */}
+            <View style={styles.providerSection}>
+              <Text style={styles.sectionTitle}>Featured Providers</Text>
+              {serviceProviders.map((p) => (
+                <Pressable
+                  key={p.id}
+                  style={styles.provCard}
+                  onPress={() =>
+                    router.push({ pathname: "/provider/[id]", params: { id: p.id } })
+                  }
+                >
+                  <View style={styles.provAvatar}>
+                    <Feather name="user" size={22} color={colors.primary} />
+                  </View>
+                  <View style={styles.provInfo}>
+                    <Text style={styles.provName} numberOfLines={1}>{p.name}</Text>
+                    <Text style={styles.provCat}>
+                      {serviceCategories.find((c) => c.id === p.serviceCategory)?.name ?? p.serviceCategory}
+                    </Text>
+                    <View style={styles.provMeta}>
+                      <Feather name="star" size={12} color="#f59e0b" />
+                      <Text style={styles.metaText}>{p.rating}</Text>
+                      <Feather name="map-pin" size={12} color={colors.mutedForeground} />
+                      <Text style={styles.metaMuted}>{p.location.address}</Text>
+                    </View>
+                  </View>
+                  <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+        ListFooterComponent={<View style={styles.footer} />}
+      />
+    </View>
+  );
+}

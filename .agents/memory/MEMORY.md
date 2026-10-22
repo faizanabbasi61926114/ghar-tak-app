@@ -1,0 +1,4 @@
+- [Orval mutation call shape](orval-mutation-call-shape.md) — providerId/orderId/serviceId etc. are siblings to `data`, never nested inside it.
+- [Clerk React missing exports](clerk-react-missing-exports.md) — installed @clerk/react lacks SignedIn/SignedOut/Show; use useUser() with conditional rendering instead.
+- [Clerk web-to-API auth path](clerk-web-api-auth.md) — web uses same-origin __session cookie, never setAuthTokenGetter (Expo-only); "missing bearer token" on web is a false positive.
+- [Stale TS project refs](stale-project-reference-types.md) — "no exported member" from @workspace/* while app runs = rebuild lib dists with tsc -b first; real errors show after.

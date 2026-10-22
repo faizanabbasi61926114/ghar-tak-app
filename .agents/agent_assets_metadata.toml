@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "zFhYIogT3j6nrRRfuOLJc"
+uri = "file://artifacts/ghar-tak-mobile/assets/images/icon.png"
+type = "image"
+title = "ghar-tak-app-icon"

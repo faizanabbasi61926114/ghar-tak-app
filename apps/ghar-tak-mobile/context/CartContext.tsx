@@ -1,0 +1,141 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+
+import { Product } from "@/lib/data";
+
+export interface CartItem {
+  product: Product;
+  quantity: number;
+  storeName?: string;
+}
+
+export interface Order {
+  id: string;
+  items: CartItem[];
+  total: number;
+  name: string;
+  address: string;
+  phone: string;
+  placedAt: string;
+  status: "placed" | "confirmed" | "delivered";
+}
+
+interface CartContextValue {
+  items: CartItem[];
+  addItem: (product: Product, storeName?: string) => void;
+  removeItem: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => void;
+  totalItems: number;
+  totalPrice: number;
+  orders: Order[];
+  placeOrder: (name: string, address: string, phone: string) => Promise<Order>;
+}
+
+const CART_KEY = "ghar_tak_cart";
+const ORDERS_KEY = "ghar_tak_orders";
+
+const CartContext = createContext<CartContextValue>({
+  items: [],
+  addItem: () => {},
+  removeItem: () => {},
+  updateQuantity: () => {},
+  clearCart: () => {},
+  totalItems: 0,
+  totalPrice: 0,
+  orders: [],
+  placeOrder: async () => ({ id: "", items: [], total: 0, name: "", address: "", phone: "", placedAt: "", status: "placed" }),
+});
+
+export function CartProvider({ children }: { children: React.ReactNode }) {
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [cartJson, ordersJson] = await Promise.all([
+          AsyncStorage.getItem(CART_KEY),
+          AsyncStorage.getItem(ORDERS_KEY),
+        ]);
+        if (cartJson) setItems(JSON.parse(cartJson));
+        if (ordersJson) setOrders(JSON.parse(ordersJson));
+      } catch {}
+    })();
+  }, []);
+
+  const saveCart = useCallback(async (next: CartItem[]) => {
+    setItems(next);
+    try {
+      await AsyncStorage.setItem(CART_KEY, JSON.stringify(next));
+    } catch {}
+  }, []);
+
+  const addItem = useCallback((product: Product, storeName?: string) => {
+    setItems((prev) => {
+      const existing = prev.find((i) => i.product.id === product.id);
+      const next = existing
+        ? prev.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
+        : [...prev, { product, quantity: 1, storeName }];
+      AsyncStorage.setItem(CART_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const removeItem = useCallback((productId: string) => {
+    setItems((prev) => {
+      const next = prev.filter((i) => i.product.id !== productId);
+      AsyncStorage.setItem(CART_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const updateQuantity = useCallback((productId: string, quantity: number) => {
+    setItems((prev) => {
+      const next = quantity <= 0
+        ? prev.filter((i) => i.product.id !== productId)
+        : prev.map((i) => i.product.id === productId ? { ...i, quantity } : i);
+      AsyncStorage.setItem(CART_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const clearCart = useCallback(() => {
+    saveCart([]);
+  }, [saveCart]);
+
+  const DELIVERY_FEE = 2;
+
+  const placeOrder = useCallback(async (name: string, address: string, phone: string): Promise<Order> => {
+    const order: Order = {
+      id: `order_${Date.now()}`,
+      items: [...items],
+      total: items.reduce((sum, i) => sum + i.product.price * i.quantity, 0) + DELIVERY_FEE,
+      name,
+      address,
+      phone,
+      placedAt: new Date().toISOString(),
+      status: "placed",
+    };
+    const nextOrders = [order, ...orders];
+    setOrders(nextOrders);
+    try {
+      await AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(nextOrders));
+    } catch {}
+    saveCart([]);
+    return order;
+  }, [items, orders, saveCart]);
+
+  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
+  const totalPrice = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+
+  return (
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, totalPrice, orders, placeOrder }}>
+      {children}
+    </CartContext.Provider>
+  );
+}
+
+export function useCart() {
+  return useContext(CartContext);
+}

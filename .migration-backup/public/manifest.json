@@ -1,0 +1,21 @@
+{
+  "name": "LocalFetch",
+  "short_name": "LocalFetch",
+  "description": "Instant Delivery & Local Services at Your Doorstep.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#E8F0FE",
+  "theme_color": "#4285F4",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

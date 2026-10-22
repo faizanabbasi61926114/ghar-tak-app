@@ -1,0 +1,1349 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.2.0
+  description: Ghar Tak — hyperlocal services & delivery SaaS API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Auth and user profile
+  - name: providers
+    description: Service & store providers
+  - name: products
+    description: Products listed by providers
+  - name: services
+    description: Services listed by providers
+  - name: categories
+    description: Service and product categories
+  - name: orders
+    description: Customer orders
+  - name: reviews
+    description: Reviews for providers
+  - name: plans
+    description: SaaS subscription plans
+  - name: search
+    description: Search across the platform
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Auth / User ───────────────────────────────────────────────────────────
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get the authenticated user's profile
+      responses:
+        "200":
+          description: Authenticated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      operationId: updateMe
+      tags: [auth]
+      summary: Update the authenticated user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserProfileRequest"
+      responses:
+        "200":
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ─── Categories ────────────────────────────────────────────────────────────
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List all categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  # ─── Providers ─────────────────────────────────────────────────────────────
+
+  /providers:
+    get:
+      operationId: listProviders
+      tags: [providers]
+      summary: List all providers (stores & service providers)
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [store, service, restaurant]
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: lat
+          in: query
+          schema:
+            type: number
+        - name: lng
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: List of providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Provider"
+    post:
+      operationId: createProvider
+      tags: [providers]
+      summary: Register as a provider (business onboarding)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProviderRequest"
+      responses:
+        "201":
+          description: Provider created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Provider"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Provider already exists for this user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /providers/me:
+    get:
+      operationId: getMyProvider
+      tags: [providers]
+      summary: Get the authenticated user's provider profile
+      responses:
+        "200":
+          description: Provider profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Provider"
+        "404":
+          description: No provider profile found for this user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      operationId: updateMyProvider
+      tags: [providers]
+      summary: Update the authenticated user's provider profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProviderRequest"
+      responses:
+        "200":
+          description: Updated provider profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Provider"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /providers/{providerId}:
+    get:
+      operationId: getProvider
+      tags: [providers]
+      summary: Get a provider by ID
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      responses:
+        "200":
+          description: Provider details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Provider"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─── Products ──────────────────────────────────────────────────────────────
+
+  /providers/{providerId}/products:
+    get:
+      operationId: listProviderProducts
+      tags: [products]
+      summary: List products for a provider
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Add a product to the provider's catalog
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductRequest"
+      responses:
+        "201":
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /products/{productId}:
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductRequest"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Delete a product
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ─── Services ──────────────────────────────────────────────────────────────
+
+  /providers/{providerId}/services:
+    get:
+      operationId: listProviderServices
+      tags: [services]
+      summary: List services for a provider
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      responses:
+        "200":
+          description: List of services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Service"
+    post:
+      operationId: createService
+      tags: [services]
+      summary: Add a service to the provider's catalog
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceRequest"
+      responses:
+        "201":
+          description: Service created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /services/{serviceId}:
+    patch:
+      operationId: updateService
+      tags: [services]
+      summary: Update a service
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceRequest"
+      responses:
+        "200":
+          description: Updated service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      operationId: deleteService
+      tags: [services]
+      summary: Delete a service
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ─── Orders ────────────────────────────────────────────────────────────────
+
+  /orders:
+    get:
+      operationId: listMyOrders
+      tags: [orders]
+      summary: List orders for the authenticated user (customer view)
+      responses:
+        "200":
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Place a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /orders/{orderId}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get a specific order
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      operationId: updateOrderStatus
+      tags: [orders]
+      summary: Update order status (provider only)
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrderStatusRequest"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /provider-orders:
+    get:
+      operationId: listProviderOrders
+      tags: [orders]
+      summary: List orders received by the authenticated provider
+      responses:
+        "200":
+          description: List of orders for provider
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ─── Reviews ───────────────────────────────────────────────────────────────
+
+  /providers/{providerId}/reviews:
+    get:
+      operationId: listProviderReviews
+      tags: [reviews]
+      summary: List reviews for a provider
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      responses:
+        "200":
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+    post:
+      operationId: createReview
+      tags: [reviews]
+      summary: Submit a review for a provider
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewRequest"
+      responses:
+        "201":
+          description: Review created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ─── Messages ──────────────────────────────────────────────────────────────
+
+  /providers/{providerId}/messages:
+    post:
+      operationId: sendProviderMessage
+      tags: [messages]
+      summary: Start or continue a chat with a provider (requires auth)
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendChatMessageRequest"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendMessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /conversations:
+    get:
+      operationId: listConversations
+      tags: [messages]
+      summary: List conversations where the current user is the customer or the provider owner (requires auth)
+      responses:
+        "200":
+          description: Conversations, most recent first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConversationListItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /conversations/{conversationId}/messages:
+    get:
+      operationId: listConversationMessages
+      tags: [messages]
+      summary: List messages in a conversation (participant only, requires auth)
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      responses:
+        "200":
+          description: Messages, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Not a participant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: sendConversationMessage
+      tags: [messages]
+      summary: Reply in a conversation as customer or provider owner (requires auth)
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendChatMessageRequest"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendMessageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Not a participant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /conversations/{conversationId}/read:
+    post:
+      operationId: markConversationRead
+      tags: [messages]
+      summary: Reset the viewer's unread counter (requires auth)
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      responses:
+        "200":
+          description: Marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Not a participant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─── Plans ─────────────────────────────────────────────────────────────────
+
+  /plans:
+    get:
+      operationId: listPlans
+      tags: [plans]
+      summary: List all available SaaS subscription plans
+      responses:
+        "200":
+          description: Available plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Plan"
+
+  /providers/me/subscription:
+    get:
+      operationId: getMySubscription
+      tags: [plans]
+      summary: Get the authenticated provider's current subscription
+      responses:
+        "200":
+          description: Current subscription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: subscribeToPlan
+      tags: [plans]
+      summary: Subscribe or upgrade to a plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscribeRequest"
+      responses:
+        "200":
+          description: Subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ─── Dashboard Stats ────────────────────────────────────────────────────────
+
+  /providers/me/stats:
+    get:
+      operationId: getMyProviderStats
+      tags: [providers]
+      summary: Get dashboard stats for the authenticated provider
+      responses:
+        "200":
+          description: Provider dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderStats"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ─── Search ────────────────────────────────────────────────────────────────
+
+  /search:
+    get:
+      operationId: search
+      tags: [search]
+      summary: Search providers, products, and services
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [all, providers, products, services]
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+
+components:
+  parameters:
+    ProviderId:
+      name: providerId
+      in: path
+      required: true
+      schema:
+        type: string
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        type: string
+    ServiceId:
+      name: serviceId
+      in: path
+      required: true
+      schema:
+        type: string
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    UserProfile:
+      type: object
+      required: [id, clerkId, email, name, createdAt]
+      properties:
+        id:
+          type: string
+        clerkId:
+          type: string
+        email:
+          type: [string, "null"]
+        name:
+          type: [string, "null"]
+        phone:
+          type: [string, "null"]
+        avatarUrl:
+          type: [string, "null"]
+        isProvider:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    UpdateUserProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+
+    Category:
+      type: object
+      required: [id, name, icon, type]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type: string
+        type:
+          type: string
+          enum: [service, product, both]
+        description:
+          type: [string, "null"]
+
+    Provider:
+      type: object
+      required: [id, userId, name, type, isOpen, rating, reviewCount, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [store, service, restaurant]
+        description:
+          type: [string, "null"]
+        address:
+          type: [string, "null"]
+        phone:
+          type: [string, "null"]
+        email:
+          type: [string, "null"]
+        avatarUrl:
+          type: [string, "null"]
+        coverUrl:
+          type: [string, "null"]
+        isOpen:
+          type: boolean
+        openingHours:
+          type: [string, "null"]
+        deliveryRadius:
+          type: [string, "null"]
+        lat:
+          type: [number, "null"]
+        lng:
+          type: [number, "null"]
+        rating:
+          type: number
+        reviewCount:
+          type: integer
+        isFavorite:
+          type: boolean
+        planId:
+          type: [string, "null"]
+        category:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateProviderRequest:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [store, service, restaurant]
+        description:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        category:
+          type: string
+        openingHours:
+          type: string
+        deliveryRadius:
+          type: string
+
+    UpdateProviderRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        isOpen:
+          type: boolean
+        openingHours:
+          type: string
+        deliveryRadius:
+          type: string
+        avatarUrl:
+          type: string
+        coverUrl:
+          type: string
+        category:
+          type: string
+
+    ProviderStats:
+      type: object
+      required: [totalRevenue, totalOrders, totalProducts, totalServices, avgRating, reviewCount, newOrdersToday, pendingOrders]
+      properties:
+        totalRevenue:
+          type: number
+        totalOrders:
+          type: integer
+        totalProducts:
+          type: integer
+        totalServices:
+          type: integer
+        avgRating:
+          type: number
+        reviewCount:
+          type: integer
+        newOrdersToday:
+          type: integer
+        pendingOrders:
+          type: integer
+
+    Product:
+      type: object
+      required: [id, providerId, name, price, stock, category, createdAt]
+      properties:
+        id:
+          type: string
+        providerId:
+          type: string
+        name:
+          type: string
+        description:
+          type: [string, "null"]
+        price:
+          type: number
+        stock:
+          type: integer
+        sku:
+          type: [string, "null"]
+        imageUrl:
+          type: [string, "null"]
+        category:
+          type: string
+        isAvailable:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateProductRequest:
+      type: object
+      required: [name, price, stock, category]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        stock:
+          type: integer
+        sku:
+          type: string
+        imageUrl:
+          type: string
+        category:
+          type: string
+
+    UpdateProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        stock:
+          type: integer
+        sku:
+          type: string
+        imageUrl:
+          type: string
+        category:
+          type: string
+        isAvailable:
+          type: boolean
+
+    Service:
+      type: object
+      required: [id, providerId, name, priceRange, category, createdAt]
+      properties:
+        id:
+          type: string
+        providerId:
+          type: string
+        name:
+          type: string
+        description:
+          type: [string, "null"]
+        priceRange:
+          type: string
+        duration:
+          type: [string, "null"]
+        category:
+          type: string
+        isAvailable:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateServiceRequest:
+      type: object
+      required: [name, priceRange, category]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        priceRange:
+          type: string
+        duration:
+          type: string
+        category:
+          type: string
+
+    UpdateServiceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        priceRange:
+          type: string
+        duration:
+          type: string
+        category:
+          type: string
+        isAvailable:
+          type: boolean
+
+    OrderItem:
+      type: object
+      required: [productId, name, quantity, unitPrice]
+      properties:
+        productId:
+          type: [string, "null"]
+        serviceId:
+          type: [string, "null"]
+        name:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+
+    Order:
+      type: object
+      required: [id, customerId, providerId, providerName, status, total, paymentMethod, items, createdAt]
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        customerName:
+          type: [string, "null"]
+        providerId:
+          type: string
+        providerName:
+          type: string
+        status:
+          type: string
+          enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+        total:
+          type: number
+        paymentMethod:
+          type: string
+          enum: [cash_on_delivery, jazzcash, easypaisa, card]
+        deliveryAddress:
+          type: [string, "null"]
+        notes:
+          type: [string, "null"]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateOrderRequest:
+      type: object
+      required: [providerId, items, paymentMethod]
+      properties:
+        providerId:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        paymentMethod:
+          type: string
+          enum: [cash_on_delivery, jazzcash, easypaisa, card]
+        deliveryAddress:
+          type: string
+        notes:
+          type: string
+
+    UpdateOrderStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+
+    Review:
+      type: object
+      required: [id, providerId, customerId, rating, createdAt]
+      properties:
+        id:
+          type: string
+        providerId:
+          type: string
+        customerId:
+          type: string
+        customerName:
+          type: [string, "null"]
+        customerAvatarUrl:
+          type: [string, "null"]
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: [string, "null"]
+        reply:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateReviewRequest:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+
+    Plan:
+      type: object
+      required: [id, name, price, interval, features, productLimit, serviceLimit]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        interval:
+          type: string
+          enum: [monthly, yearly]
+        features:
+          type: array
+          items:
+            type: string
+        productLimit:
+          type: integer
+        serviceLimit:
+          type: integer
+        isPopular:
+          type: boolean
+
+    Subscription:
+      type: object
+      required: [id, providerId, planId, planName, status, currentPeriodEnd]
+      properties:
+        id:
+          type: string
+        providerId:
+          type: string
+        planId:
+          type: string
+        planName:
+          type: string
+        status:
+          type: string
+          enum: [active, cancelled, past_due, trialing]
+        currentPeriodEnd:
+          type: string
+          format: date-time
+
+    SubscribeRequest:
+      type: object
+      required: [planId]
+      properties:
+        planId:
+          type: string
+
+    SearchResults:
+      type: object
+      required: [providers, products, services]
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Provider"
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/Service"
+
+    SendChatMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+
+    SendMessageResponse:
+      type: object
+      required: [conversationId, message]
+      properties:
+        conversationId:
+          type: string
+        message:
+          $ref: "#/components/schemas/ChatMessage"
+
+    ChatMessage:
+      type: object
+      required: [id, conversationId, senderId, senderType, content, isRead, createdAt]
+      properties:
+        id:
+          type: string
+        conversationId:
+          type: string
+        senderId:
+          type: string
+        senderType:
+          type: string
+          description: "user | provider"
+        senderName:
+          type: [string, "null"]
+        content:
+          type: string
+        imageUrl:
+          type: [string, "null"]
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    Conversation:
+      type: object
+      required: [id, providerId, userId, lastMessageAt, unreadCountUser, unreadCountProvider, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        providerId:
+          type: string
+        userId:
+          type: string
+        userName:
+          type: [string, "null"]
+        userEmail:
+          type: [string, "null"]
+        userAvatar:
+          type: [string, "null"]
+        providerName:
+          type: [string, "null"]
+        providerAvatar:
+          type: [string, "null"]
+        lastMessage:
+          type: [string, "null"]
+        lastMessageAt:
+          type: string
+          format: date-time
+        unreadCountUser:
+          type: integer
+        unreadCountProvider:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ConversationListItem:
+      allOf:
+        - $ref: "#/components/schemas/Conversation"
+        - type: object
+          required: [viewerRole]
+          properties:
+            viewerRole:
+              type: string
+              description: "user | provider"

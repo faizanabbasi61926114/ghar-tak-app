@@ -1,0 +1,31 @@
+kind = "video"
+previewPath = "/ghar-tak-promo/"
+title = "Ghar Tak Promo Video"
+version = "1.0.0"
+id = "apps/ghar-tak-promo"
+router = "path"
+
+[[integratedSkills]]
+name = "video-js"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/ghar-tak-promo/" ]
+localPort = 22616
+
+[services.development]
+run = "pnpm --filter @workspace/ghar-tak-promo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ghar-tak-promo", "run", "build" ]
+publicDir = "apps/ghar-tak-promo/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22616"
+BASE_PATH = "/ghar-tak-promo/"
