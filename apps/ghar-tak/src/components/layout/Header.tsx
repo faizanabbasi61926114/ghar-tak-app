@@ -139,7 +139,8 @@ export default function Header() {
       <div className="container flex h-16 items-center">
         <div className="mr-4 hidden md:flex">
           <Link href="/" className="flex items-center">
-            <img src="/logo.png" alt="Ghar Tak" className="h-10 w-10 rounded-md object-contain" />
+            <img src="/logo-light.png" alt="Ghar Tak" className="h-10 w-10 object-contain dark:hidden" />
+            <img src="/logo-dark.png" alt="Ghar Tak" className="hidden h-10 w-10 object-contain dark:block" />
           </Link>
         </div>
         
@@ -153,7 +154,8 @@ export default function Header() {
 
         <div className="flex items-center md:hidden flex-1">
             <Link href="/" className="flex items-center">
-                <img src="/logo.png" alt="Ghar Tak" className="h-10 w-10 rounded-md object-contain" />
+                <img src="/logo-light.png" alt="Ghar Tak" className="h-10 w-10 object-contain dark:hidden" />
+            <img src="/logo-dark.png" alt="Ghar Tak" className="hidden h-10 w-10 object-contain dark:block" />
             </Link>
         </div>
 
@@ -227,7 +229,8 @@ export default function Header() {
             </SheetTrigger>
             <SheetContent side="left" className="pr-0">
               <Link href="/" className="flex items-center mb-6 px-4">
-                <img src="/logo.png" alt="Ghar Tak" className="h-10 w-10 rounded-md object-contain" />
+                <img src="/logo-light.png" alt="Ghar Tak" className="h-10 w-10 object-contain dark:hidden" />
+            <img src="/logo-dark.png" alt="Ghar Tak" className="hidden h-10 w-10 object-contain dark:block" />
               </Link>
               <div className="flex flex-col space-y-1 px-4">
                 <MobileNavLinks />

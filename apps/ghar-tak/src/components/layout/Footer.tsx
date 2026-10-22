@@ -12,7 +12,8 @@ export default function Footer() {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-sm">
           <div>
-            <img src="/logo.png" alt="Ghar Tak" className="h-14 w-14 rounded-lg object-contain mb-3" />
+            <img src="/logo-light.png" alt="Ghar Tak" className="h-14 w-14 object-contain mb-3 dark:hidden" />
+            <img src="/logo-dark.png" alt="Ghar Tak" className="hidden h-14 w-14 object-contain mb-3 dark:block" />
             <p className="text-muted-foreground">
               Nearby products and services at your fingertips.
             </p>
