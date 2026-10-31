@@ -11,7 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@clerk/react";
 import { Link } from "wouter";
-import { useListMyOrders, useGetMe, useUpdateMe } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useListMyOrders, useGetMe, useUpdateMe, useListMyBookings, useUpdateBookingStatus } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 import {
   User,
   Edit3,
@@ -30,7 +32,8 @@ import {
   X,
   Star,
   ChevronRight,
-  ShoppingBag
+  ShoppingBag,
+  CalendarClock
 } from "lucide-react";
 
 interface GalleryImage {
@@ -45,6 +48,18 @@ export default function ProfilePage() {
   const { data: dbUser, isLoading: dbUserLoading } = useGetMe({ query: { enabled: !!user, queryKey: ["getMe"] } });
   const updateMeMutation = useUpdateMe();
   const { data: ordersData, isLoading: ordersLoading } = useListMyOrders({ query: { enabled: !!user, queryKey: ["listMyOrders"] } });
+  const { data: bookingsData, isLoading: bookingsLoading } = useListMyBookings({ query: { enabled: !!user, queryKey: ["listMyBookings"] } });
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const cancelBooking = useUpdateBookingStatus({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["listMyBookings"] });
+        toast({ title: "Booking cancelled" });
+      },
+      onError: () => toast({ title: "Could not cancel booking", variant: "destructive" }),
+    },
+  });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -65,6 +80,7 @@ export default function ProfilePage() {
   const savedCount = savedItems.length;
   const orders = Array.isArray(ordersData) ? ordersData : [];
   const ordersCount = orders.length;
+  const bookings = Array.isArray(bookingsData) ? bookingsData : [];
 
   const handleEditClick = () => {
     setEditForm({
@@ -88,6 +104,7 @@ export default function ProfilePage() {
   const statusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "delivered":
+      case "completed":
         return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
       case "shipped":
         return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
@@ -283,9 +300,56 @@ export default function ProfilePage() {
               ))}
             </div>
           )}
-        </TabsContent>
 
-        {/* Settings */}
+          <div className="mt-8">
+            <h2 className="text-lg font-semibold font-headline mb-4">My Service Bookings</h2>
+            {bookingsLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="animate-spin text-primary" /></div>
+            ) : bookings.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground border border-dashed rounded-xl">
+                <CalendarClock className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No service bookings yet. Browse local pros to book one!</p>
+                <Button variant="outline" size="sm" className="mt-3" asChild>
+                  <Link href="/services">Explore Services</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {bookings.map((booking) => (
+                  <Card key={booking.id}>
+                    <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <CalendarClock className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">{booking.serviceName}</h3>
+                          <Badge className={statusColor(booking.status)}>{booking.status}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{booking.providerName} · {booking.address}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(booking.bookingDate).toLocaleDateString(undefined, { dateStyle: "medium" })} · {booking.timeSlot}
+                          {booking.priceRange ? ` · ${booking.priceRange}` : ""}
+                        </p>
+                      </div>
+                      {(booking.status === "pending" || booking.status === "confirmed") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => cancelBooking.mutate({ bookingId: booking.id, data: { status: "cancelled" } })}
+                          disabled={cancelBooking.isPending}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
         <TabsContent value="settings" className="mt-6">
           <div className="max-w-lg mx-auto space-y-6">
             <Card>

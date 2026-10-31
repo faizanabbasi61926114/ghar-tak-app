@@ -3,7 +3,7 @@ import { Provider } from '@workspace/api-client-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Star, CalendarClock, Heart, Navigation } from 'lucide-react';
+import { MapPin, Star, CalendarClock, Heart, Navigation, BadgeCheck } from 'lucide-react';
 import { formatDistance } from '@/lib/geo';
 
 interface ServiceCardProps {
@@ -36,7 +36,10 @@ export default function ServiceCard({ serviceProvider, onToggleFavorite, isFavor
       <CardContent className="p-4 flex-grow">
         <div className="flex justify-between items-start mb-2">
           <Link href={`/services/${serviceProvider.category || 'all'}/${serviceProvider.id}`}>
-            <CardTitle className="text-lg font-headline hover:text-primary transition-colors line-clamp-1">{serviceProvider.name}</CardTitle>
+            <CardTitle className="text-lg font-headline hover:text-primary transition-colors line-clamp-1 flex items-center gap-1">
+              {serviceProvider.name}
+              {serviceProvider.isVerified && <BadgeCheck className="h-4 w-4 text-primary flex-shrink-0" aria-label="Verified provider" />}
+            </CardTitle>
           </Link>
           {onToggleFavorite && (
             <Button variant="ghost" size="icon" onClick={handleFavoriteClick} className="text-muted-foreground hover:text-destructive flex-shrink-0">

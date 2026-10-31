@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Briefcase, Building, Camera, Edit3, Eye, ImagePlus, ListChecks,
+  Briefcase, Building, BadgeCheck, Camera, CalendarClock, Edit3, Eye, ImagePlus, ListChecks,
   Loader2, MessageSquare, Package, PlusCircle, ShoppingBag, ShoppingCart,
   Star, Trash2, TrendingUp, Users, DollarSign, ArrowUpRight, BarChart3,
   AlertCircle,
@@ -28,6 +28,8 @@ import {
   useListProviderServices, useCreateService, useUpdateService, useDeleteService,
   useListProviderOrders, useUpdateOrderStatus,
   useListProviderReviews,
+  useListProviderBookings, useUpdateBookingStatus,
+  getListProviderBookingsQueryKey,
   useListConversations,
   getListConversationsQueryKey,
   useGetMySubscription,
@@ -446,6 +448,90 @@ function OrdersTab() {
   );
 }
 
+function BookingsTab() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { data: bookings = [], isLoading } = useListProviderBookings({
+    query: { queryKey: getListProviderBookingsQueryKey() },
+  });
+  const updateStatus = useUpdateBookingStatus({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListProviderBookingsQueryKey() });
+        toast({ title: "Booking updated" });
+      },
+      onError: () => toast({ title: "Failed to update booking", variant: "destructive" }),
+    },
+  });
+
+  if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="animate-spin text-primary" /></div>;
+
+  return (
+    <div>
+      <h3 className="text-lg font-semibold font-headline mb-4">Service Bookings</h3>
+      {bookings.length === 0 ? (
+        <div className="text-center py-12 border border-dashed rounded-xl">
+          <CalendarClock className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-muted-foreground">No bookings yet. Customers who book your services will appear here.</p>
+        </div>
+      ) : (
+        <div className="border rounded-lg overflow-x-auto">
+          <Table className="min-w-[720px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Booking</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Service</TableHead>
+                <TableHead>Schedule</TableHead>
+                <TableHead>Address</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Update</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {bookings.map((booking) => (
+                <TableRow key={booking.id}>
+                  <TableCell className="font-medium font-mono text-xs">{booking.id.slice(0, 8).toUpperCase()}</TableCell>
+                  <TableCell>{booking.customerName ?? "Customer"}</TableCell>
+                  <TableCell>
+                    <span className="font-medium">{booking.serviceName}</span>
+                    {booking.priceRange && <span className="text-xs text-muted-foreground block">{booking.priceRange}</span>}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {new Date(booking.bookingDate).toLocaleDateString()}
+                    <span className="text-xs text-muted-foreground block">{booking.timeSlot}</span>
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate text-sm">{booking.address}</TableCell>
+                  <TableCell>
+                    <Badge className={statusBadge(booking.status)}>{booking.status}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={booking.status}
+                      onValueChange={(v) => updateStatus.mutate({ bookingId: booking.id, data: { status: v as any } })}
+                      disabled={booking.status === "cancelled"}
+                    >
+                      <SelectTrigger className="h-8 w-[130px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReviewsTab({ providerId }: { providerId: string }) {
   const { data: reviews = [], isLoading } = useListProviderReviews(
     providerId,
@@ -805,6 +891,9 @@ export default function ProviderDashboardPage() {
             <Badge className={provider.isOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}>
               {provider.isOpen ? "Open" : "Closed"}
             </Badge>
+            {provider.isVerified && (
+              <Badge variant="secondary" className="gap-1"><BadgeCheck className="h-3.5 w-3.5" /> Verified</Badge>
+            )}
             {subscription && (
               <Badge variant="outline" className="capitalize">{subscription.planName ?? subscription.planId} Plan</Badge>
             )}
@@ -918,9 +1007,10 @@ export default function ProviderDashboardPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="listings">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-7">
           <TabsTrigger value="listings"><ListChecks className="h-4 w-4 mr-2" /> Listings</TabsTrigger>
           <TabsTrigger value="orders"><ShoppingBag className="h-4 w-4 mr-2" /> Orders</TabsTrigger>
+          <TabsTrigger value="bookings"><CalendarClock className="h-4 w-4 mr-2" /> Bookings</TabsTrigger>
           <TabsTrigger value="messages"><MessageSquare className="h-4 w-4 mr-2" /> Messages</TabsTrigger>
           <TabsTrigger value="reviews"><Star className="h-4 w-4 mr-2" /> Reviews</TabsTrigger>
           <TabsTrigger value="gallery"><ImagePlus className="h-4 w-4 mr-2" /> Gallery</TabsTrigger>
@@ -939,6 +1029,7 @@ export default function ProviderDashboardPage() {
         </TabsContent>
 
         <TabsContent value="orders" className="mt-6"><OrdersTab /></TabsContent>
+        <TabsContent value="bookings" className="mt-6"><BookingsTab /></TabsContent>
         <TabsContent value="messages" className="mt-6"><MessagesTab /></TabsContent>
         <TabsContent value="reviews" className="mt-6"><ReviewsTab providerId={providerId} /></TabsContent>
         <TabsContent value="gallery" className="mt-6"><GalleryTab /></TabsContent>
