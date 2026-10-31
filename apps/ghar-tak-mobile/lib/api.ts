@@ -14,7 +14,15 @@ export const getBaseUrl = () => {
   }
 
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) return `https://${domain}`;
+  if (domain) {
+    const domainHost = domain.split(":")[0];
+    const isLocalHost =
+      domainHost === "localhost" ||
+      domainHost === "127.0.0.1" ||
+      /^\d{1,3}(\.\d{1,3}){3}$/.test(domainHost);
+    // Local dev serves the API over plain HTTP on 8000, next to Metro on 8081.
+    return isLocalHost ? `http://${domainHost}:8000` : `https://${domain}`;
+  }
   return "";
 };
 
