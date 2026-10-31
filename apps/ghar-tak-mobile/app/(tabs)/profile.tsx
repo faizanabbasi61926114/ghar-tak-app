@@ -253,6 +253,7 @@ export default function ProfileScreen() {
 
   const accountItems: MenuItem[] = [
     { icon: "shopping-bag", label: "My Orders", route: "/orders" },
+    { icon: "calendar", label: "My Bookings", route: "/bookings" },
     { icon: "heart", label: "Favorites", route: "/favorites" },
     { icon: "layout", label: "Provider Dashboard", route: "/dashboard" },
     { icon: "user-plus", label: "Become a Provider", route: "/become-provider" },

@@ -186,3 +186,64 @@ export const mockServiceProviders: ServiceProvider[] = [
     description: "All-around handyman for your home repair needs.",
   },
 ];
+
+export interface ServiceOption {
+  name: string;
+  priceRange: string;
+}
+
+const SERVICE_OPTIONS: Record<string, ServiceOption[]> = {
+  plumber: [
+    { name: "Leak repair", priceRange: "PKR 1,000 – 3,000" },
+    { name: "Drain cleaning", priceRange: "PKR 1,500 – 4,000" },
+    { name: "Geyser installation", priceRange: "PKR 3,000 – 6,000" },
+  ],
+  cleaner: [
+    { name: "Home deep cleaning", priceRange: "PKR 3,000 – 8,000" },
+    { name: "Sofa and carpet shampoo", priceRange: "PKR 2,000 – 5,000" },
+    { name: "Kitchen cleaning", priceRange: "PKR 2,500 – 5,000" },
+  ],
+  hairdresser: [
+    { name: "Haircut and styling", priceRange: "PKR 800 – 2,500" },
+    { name: "Bridal makeup", priceRange: "PKR 8,000 – 25,000" },
+    { name: "Hair colouring", priceRange: "PKR 3,000 – 9,000" },
+  ],
+  car_repair: [
+    { name: "Oil and filter change", priceRange: "PKR 4,000 – 8,000" },
+    { name: "Brake service", priceRange: "PKR 3,000 – 9,000" },
+    { name: "AC gas refill", priceRange: "PKR 4,000 – 7,000" },
+  ],
+  tech_repair: [
+    { name: "Phone screen replacement", priceRange: "PKR 5,000 – 20,000" },
+    { name: "Laptop diagnostics", priceRange: "PKR 1,500 – 4,000" },
+    { name: "Battery replacement", priceRange: "PKR 3,000 – 8,000" },
+  ],
+  general_repair: [
+    { name: "Furniture assembly", priceRange: "PKR 1,500 – 4,000" },
+    { name: "Wall mounting", priceRange: "PKR 1,000 – 3,000" },
+    { name: "Door and lock repair", priceRange: "PKR 1,500 – 5,000" },
+  ],
+  home_repair: [
+    { name: "Electrical wiring", priceRange: "PKR 2,000 – 8,000" },
+    { name: "Tile and grout repair", priceRange: "PKR 3,000 – 10,000" },
+  ],
+  beauty: [
+    { name: "Facial", priceRange: "PKR 2,000 – 6,000" },
+    { name: "Manicure and pedicure", priceRange: "PKR 1,500 – 4,000" },
+  ],
+  wellness: [
+    { name: "Home massage", priceRange: "PKR 3,000 – 8,000" },
+    { name: "Physiotherapy session", priceRange: "PKR 2,500 – 6,000" },
+  ],
+  pest_control: [
+    { name: "General fumigation", priceRange: "PKR 3,000 – 7,000" },
+    { name: "Termite treatment", priceRange: "PKR 8,000 – 20,000" },
+  ],
+  training: [{ name: "Home tuition session", priceRange: "PKR 1,500 – 4,000" }],
+  rental: [{ name: "Equipment rental", priceRange: "On request" }],
+  jobs: [{ name: "General labour", priceRange: "On request" }],
+};
+
+export function serviceOptionsFor(category: string): ServiceOption[] {
+  return SERVICE_OPTIONS[category] ?? [{ name: "General service", priceRange: "On request" }];
+}

@@ -20,9 +20,22 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { useThemedStyles } from "@/hooks/useThemedStyles";
+import { useBookings } from "@/context/BookingsContext";
 import { useData } from "@/context/DataContext";
+import { serviceOptionsFor } from "@/lib/data";
+import { getBaseUrl } from "@/lib/api";
 
-const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+const TIME_SLOTS = ["Morning (9am – 12pm)", "Afternoon (12pm – 4pm)", "Evening (4pm – 8pm)"];
+
+function upcomingDays(count: number) {
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const weekday = d.toLocaleDateString(undefined, { weekday: "short" });
+    return { iso, label: i === 0 ? "Today" : weekday, day: d.getDate() };
+  });
+}
 
 export default function ProviderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,10 +44,51 @@ export default function ProviderDetailScreen() {
   const isWeb = Platform.OS === "web";
 
   const { serviceProviders, serviceCategories } = useData();
+  const { bookService } = useBookings();
   const provider = serviceProviders.find((p) => p.id === id);
   const catName = provider
     ? serviceCategories.find((c) => c.id === provider.serviceCategory)?.name
     : null;
+  const services = provider ? serviceOptionsFor(provider.serviceCategory) : [];
+  const dayOptions = upcomingDays(7);
+
+  // Booking modal state
+  const [bookOpen, setBookOpen] = useState(false);
+  const [serviceIdx, setServiceIdx] = useState(0);
+  const [dateIso, setDateIso] = useState(dayOptions[0]?.iso ?? "");
+  const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[0]);
+  const [address, setAddress] = useState("");
+  const [notes, setNotes] = useState("");
+  const [booking, setBooking] = useState(false);
+  const [booked, setBooked] = useState(false);
+
+  const confirmBooking = async () => {
+    if (!provider) return;
+    if (!address.trim()) {
+      Alert.alert("Address required", "Please add the address where the service should be performed.");
+      return;
+    }
+    const option = services[serviceIdx] ?? services[0];
+    setBooking(true);
+    try {
+      await bookService({
+        providerId: provider.id,
+        providerName: provider.name,
+        serviceName: option.name,
+        priceRange: option.priceRange,
+        date: dateIso,
+        timeSlot,
+        address: address.trim(),
+        notes: notes.trim(),
+      });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setBooked(true);
+      setAddress("");
+      setNotes("");
+    } finally {
+      setBooking(false);
+    }
+  };
 
   // Message modal state
   const [msgOpen, setMsgOpen] = useState(false);
@@ -51,7 +105,7 @@ export default function ProviderDetailScreen() {
     }
     setSending(true);
     try {
-      const res = await fetch(`${API_BASE}/api/messages`, {
+      const res = await fetch(`${getBaseUrl()}/api/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -121,6 +175,7 @@ export default function ProviderDetailScreen() {
       backgroundColor: colors.background,
       borderTopLeftRadius: 20, borderTopRightRadius: 20,
       padding: 24, paddingBottom: isWeb ? 32 : insets.bottom + 24,
+      maxHeight: "90%",
     },
     modalHandle: {
       width: 36, height: 4, borderRadius: 2,
@@ -152,6 +207,30 @@ export default function ProviderDetailScreen() {
     closeBtnText: { fontSize: 14, color: colors.foreground, fontFamily: "Inter_500Medium" },
     errorBox: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40, gap: 16 },
     errorText: { fontSize: 18, fontWeight: "600" as const, color: colors.foreground, fontFamily: "Inter_600SemiBold" },
+    // Booking sheet
+    modalScroll: { flexGrow: 0, flexShrink: 1 },
+    chipWrap: { flexDirection: "row", flexWrap: "wrap" as const, gap: 8, marginBottom: 4 },
+    chip: {
+      flexGrow: 1, borderRadius: 10, borderWidth: 1, borderColor: colors.border,
+      backgroundColor: colors.secondary, paddingVertical: 10, paddingHorizontal: 12, gap: 2,
+    },
+    chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    chipText: { fontSize: 13, color: colors.foreground, fontFamily: "Inter_500Medium" },
+    chipTextActive: { color: "#fff" },
+    chipPrice: { fontSize: 11, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+    labelSpaced: { marginTop: 14 },
+    dateRow: { gap: 8, paddingVertical: 2 },
+    dateChip: {
+      width: 56, borderRadius: 10, borderWidth: 1, borderColor: colors.border,
+      backgroundColor: colors.secondary, alignItems: "center", paddingVertical: 8, gap: 2,
+    },
+    dateDay: { fontSize: 11, color: colors.mutedForeground, fontFamily: "Inter_500Medium" },
+    dateNum: { fontSize: 16, color: colors.foreground, fontFamily: "Inter_700Bold" },
+    viewBookingsBtn: {
+      backgroundColor: colors.primary, borderRadius: 12,
+      paddingVertical: 12, paddingHorizontal: 24, alignItems: "center", marginTop: 8,
+    },
+    viewBookingsText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
   }));
 
   if (!provider) {
@@ -215,7 +294,8 @@ export default function ProviderDetailScreen() {
               style={styles.primaryBtn}
               onPress={async () => {
                 await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                Alert.alert("Booking", "Booking flow coming soon!");
+                setBooked(false);
+                setBookOpen(true);
               }}
             >
               <Text style={styles.primaryBtnText}>Book Now</Text>
@@ -268,6 +348,115 @@ export default function ProviderDetailScreen() {
                   <Text style={styles.sendBtnText}>{sending ? "Sending…" : "Send Message"}</Text>
                 </Pressable>
               </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Booking bottom sheet */}
+      <Modal visible={bookOpen} transparent animationType="slide" onRequestClose={() => setBookOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.modalOverlay}>
+          <Pressable style={{ flex: 1 }} onPress={() => setBookOpen(false)} />
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            {booked ? (
+              <View style={styles.successBox}>
+                <Feather name="check-circle" size={52} color="#22c55e" />
+                <Text style={styles.successTitle}>Booking Confirmed!</Text>
+                <Text style={styles.successSub}>
+                  {services[serviceIdx]?.name ?? "Service"} with {provider.name} on{" "}
+                  {(() => {
+                    const day = dayOptions.find((d) => d.iso === dateIso);
+                    return day ? `${day.label} ${day.day}` : dateIso;
+                  })()}{" "}
+                  • {timeSlot}
+                </Text>
+                <Pressable
+                  style={styles.viewBookingsBtn}
+                  onPress={() => {
+                    setBookOpen(false);
+                    router.push("/bookings");
+                  }}
+                >
+                  <Text style={styles.viewBookingsText}>View My Bookings</Text>
+                </Pressable>
+                <Pressable style={styles.closeBtn} onPress={() => setBookOpen(false)}>
+                  <Text style={styles.closeBtnText}>Done</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
+                <Text style={styles.modalTitle}>Book {provider.name}</Text>
+                <Text style={styles.modalSub}>Pick a service, date and time that works for you.</Text>
+
+                <Text style={styles.label}>Service</Text>
+                <View style={styles.chipWrap}>
+                  {services.map((service, i) => (
+                    <Pressable
+                      key={service.name}
+                      style={[styles.chip, i === serviceIdx && styles.chipActive]}
+                      onPress={() => setServiceIdx(i)}
+                    >
+                      <Text style={[styles.chipText, i === serviceIdx && styles.chipTextActive]}>{service.name}</Text>
+                      <Text style={[styles.chipPrice, i === serviceIdx && styles.chipTextActive]}>{service.priceRange}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <Text style={[styles.label, styles.labelSpaced]}>Date</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
+                  {dayOptions.map((day) => (
+                    <Pressable
+                      key={day.iso}
+                      style={[styles.dateChip, day.iso === dateIso && styles.chipActive]}
+                      onPress={() => setDateIso(day.iso)}
+                    >
+                      <Text style={[styles.dateDay, day.iso === dateIso && styles.chipTextActive]}>{day.label}</Text>
+                      <Text style={[styles.dateNum, day.iso === dateIso && styles.chipTextActive]}>{day.day}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+
+                <Text style={[styles.label, styles.labelSpaced]}>Time slot</Text>
+                <View style={styles.chipWrap}>
+                  {TIME_SLOTS.map((slot) => (
+                    <Pressable
+                      key={slot}
+                      style={[styles.chip, slot === timeSlot && styles.chipActive]}
+                      onPress={() => setTimeSlot(slot)}
+                    >
+                      <Text style={[styles.chipText, slot === timeSlot && styles.chipTextActive]}>{slot}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <Text style={[styles.label, styles.labelSpaced]}>Service address</Text>
+                <TextInput
+                  style={styles.input}
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder="House 12, Street 4, Gulberg III, Lahore"
+                  placeholderTextColor={colors.mutedForeground}
+                />
+
+                <Text style={styles.label}>Notes (optional)</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Describe the issue or any special requests."
+                  multiline
+                  placeholderTextColor={colors.mutedForeground}
+                />
+
+                <Pressable style={styles.sendBtn} onPress={confirmBooking} disabled={booking}>
+                  {booking
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Feather name="calendar" size={16} color="#fff" />
+                  }
+                  <Text style={styles.sendBtnText}>{booking ? "Booking…" : "Confirm Booking"}</Text>
+                </Pressable>
+              </ScrollView>
             )}
           </View>
         </KeyboardAvoidingView>

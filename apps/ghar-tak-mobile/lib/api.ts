@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
   if (explicit) return explicit.replace(/\/+$/, "");
 

@@ -17,8 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { useThemedStyles } from "@/hooks/useThemedStyles";
-
-const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+import { getBaseUrl } from "@/lib/api";
 
 export default function ContactScreen() {
   const colors = useColors();
@@ -37,7 +36,7 @@ export default function ContactScreen() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/messages`, {
+      const res = await fetch(`${getBaseUrl()}/api/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, message }),
