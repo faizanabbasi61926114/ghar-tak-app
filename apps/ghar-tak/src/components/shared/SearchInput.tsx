@@ -1,12 +1,44 @@
-import { useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Camera, Loader2, Upload } from 'lucide-react';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { Search, Camera, Loader2, Upload, Clock, X } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { analyzeImageForSearch } from '@/ai/flows/analyze-image-flow';
 import { useUser } from '@clerk/react';
+
+const RECENT_SEARCHES_KEY = 'ghar-tak:recent-searches';
+const MAX_RECENT_SEARCHES = 6;
+
+function readRecentSearches(): string[] {
+  try {
+    const raw = window.localStorage.getItem(RECENT_SEARCHES_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentSearches(searches: string[]) {
+  try {
+    window.localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches));
+  } catch {
+    // Storage can be unavailable (private mode); recents are a nice-to-have.
+  }
+}
+
+function saveRecentSearch(query: string): string[] {
+  const trimmed = query.trim();
+  if (!trimmed) return readRecentSearches();
+  const next = [trimmed, ...readRecentSearches().filter((item) => item.toLowerCase() !== trimmed.toLowerCase())]
+    .slice(0, MAX_RECENT_SEARCHES);
+  writeRecentSearches(next);
+  return next;
+}
 
 interface SearchInputProps {
   initialQuery?: string;
@@ -23,18 +55,52 @@ export default function SearchInput({
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user } = useUser();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => readRecentSearches());
+  const [isRecentOpen, setIsRecentOpen] = useState(false);
 
   const [isImageSearchOpen, setIsImageSearchOpen] = useState(false);
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
   const [selectedImageDataUri, setSelectedImageDataUri] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  const runSearch = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setRecentSearches(saveRecentSearch(trimmed));
+    setQuery(trimmed);
+    setIsRecentOpen(false);
+    navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+  };
+
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (query.trim()) {
-      navigate(`/search?q=${encodeURIComponent(query.trim())}`);
-    }
+    runSearch(query);
   };
+
+  const handleInputFocus = () => {
+    const stored = readRecentSearches();
+    setRecentSearches(stored);
+    setIsRecentOpen(stored.length > 0);
+  };
+
+  const removeRecentSearch = (value: string) => {
+    const next = readRecentSearches().filter((item) => item !== value);
+    writeRecentSearches(next);
+    setRecentSearches(next);
+    if (next.length === 0) setIsRecentOpen(false);
+  };
+
+  const clearRecentSearches = () => {
+    writeRecentSearches([]);
+    setRecentSearches([]);
+    setIsRecentOpen(false);
+  };
+
+  const filteredSearches = query.trim()
+    ? recentSearches.filter((item) => item.toLowerCase().includes(query.trim().toLowerCase()))
+    : recentSearches;
 
   const handleImageSearchClick = () => {
     if (!user) {
@@ -88,7 +154,7 @@ export default function SearchInput({
     try {
       const result = await analyzeImageForSearch({ imageDataUri: selectedImageDataUri });
       if (result.searchQuery && result.searchQuery.trim() !== "") {
-        navigate(`/search?q=${encodeURIComponent(result.searchQuery.trim())}`);
+        runSearch(result.searchQuery);
         setIsImageSearchOpen(false);
         setSelectedImagePreview(null);
         setSelectedImageDataUri(null);
@@ -113,13 +179,71 @@ export default function SearchInput({
   return (
     <>
       <form onSubmit={handleSearch} className={`flex w-full items-center space-x-2 ${className}`}>
-        <Input
-          type="search"
-          placeholder={placeholder}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="flex-grow h-11 text-base"
-        />
+        <Popover open={isRecentOpen} onOpenChange={setIsRecentOpen}>
+          <PopoverAnchor asChild>
+            <div className="relative flex-grow min-w-0">
+              <Input
+                ref={inputRef}
+                type="search"
+                placeholder={placeholder}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={handleInputFocus}
+                className="w-full h-11 text-base"
+                autoComplete="off"
+              />
+            </div>
+          </PopoverAnchor>
+          <PopoverContent
+            align="start"
+            sideOffset={6}
+            className="w-[var(--radix-popover-trigger-width)] min-w-[280px] p-2"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+            onInteractOutside={(e) => {
+              if (inputRef.current?.contains(e.target as Node)) e.preventDefault();
+            }}
+          >
+            <div className="flex items-center justify-between px-2 py-1.5">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Recent searches</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={clearRecentSearches}
+              >
+                Clear all
+              </Button>
+            </div>
+            {filteredSearches.length === 0 ? (
+              <p className="px-2 py-3 text-sm text-muted-foreground">No recent searches match "{query.trim()}".</p>
+            ) : (
+              <div className="space-y-0.5">
+                {filteredSearches.map((item) => (
+                  <div key={item} className="flex items-center gap-1 rounded-lg transition-colors hover:bg-primary/10">
+                    <button
+                      type="button"
+                      onClick={() => runSearch(item)}
+                      className="flex flex-1 min-w-0 items-center gap-2 px-2 py-2 text-left text-sm"
+                    >
+                      <Clock className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      <span className="truncate">{item}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeRecentSearch(item)}
+                      aria-label={`Remove ${item} from recent searches`}
+                      className="mr-1 flex-shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
         <Button type="button" variant="outline" size="icon" onClick={handleImageSearchClick} className="h-11 w-11 flex-shrink-0">
           <Camera className="h-5 w-5" />
           <span className="sr-only">Search by image</span>
