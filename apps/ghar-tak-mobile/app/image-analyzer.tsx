@@ -17,50 +17,58 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { useThemedStyles } from "@/hooks/useThemedStyles";
-import { describeImage } from "@/lib/api";
+import { analyzeImageForSearch, ApiError } from "@/lib/api";
+
+type Asset = ImagePicker.ImagePickerAsset;
 
 export default function ImageAnalyzerScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [query, setQuery] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const analyze = async (asset: Asset) => {
+    if (!asset.base64) {
+      setError("Couldn't read that image. Please pick a JPEG or PNG photo.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setQuery(null);
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const detected = await analyzeImageForSearch(
+        `data:${asset.mimeType ?? "image/jpeg"};base64,${asset.base64}`,
+      );
+      setQuery(detected);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not analyze that image. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      setError("Camera roll access is needed to pick photos.");
+      setError("Photo access is needed to pick an image.");
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: "images",
       base64: true,
-      quality: 0.7,
+      quality: 0.6,
     });
     if (!res.canceled && res.assets[0]) {
-      const asset = res.assets[0];
-      setImageUri(asset.uri);
-      setResult(null);
-      setError(null);
-      if (asset.base64) {
-        await analyzeImage(`data:image/jpeg;base64,${asset.base64}`);
-      }
-    }
-  };
-
-  const analyzeImage = async (dataUri: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const description = await describeImage(dataUri);
-      setResult(description);
-    } catch {
-      setError("Could not analyze image. Make sure the API server is running.");
-    } finally {
-      setLoading(false);
+      setImageUri(res.assets[0].uri);
+      await analyze(res.assets[0]);
     }
   };
 
@@ -111,21 +119,30 @@ export default function ImageAnalyzerScreen() {
     },
     analyzeBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
     resultCard: {
-      backgroundColor: "#f3e8ff",
+      backgroundColor: colors.secondary,
       borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
       padding: 16,
       marginTop: 20,
     },
-    resultLabel: { fontSize: 12, color: "#7c3aed", fontFamily: "Inter_600SemiBold", textTransform: "uppercase" as const, letterSpacing: 1 },
-    resultText: { fontSize: 16, color: "#18181b", fontFamily: "Inter_600SemiBold", marginTop: 6 },
+    resultLabel: {
+      fontSize: 12,
+      color: colors.primary,
+      fontFamily: "Inter_600SemiBold",
+      textTransform: "uppercase" as const,
+      letterSpacing: 1,
+    },
+    resultText: { fontSize: 18, color: colors.foreground, fontFamily: "Inter_700Bold", marginTop: 6 },
     searchBtn: {
-      backgroundColor: "#7c3aed",
+      backgroundColor: colors.primary,
       borderRadius: 12,
       paddingVertical: 12,
       alignItems: "center",
-      marginTop: 12,
+      marginTop: 14,
     },
     searchBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+    emptyResult: { fontSize: 15, color: colors.mutedForeground, fontFamily: "Inter_500Medium", marginTop: 6 },
     errorText: { color: colors.destructive, fontSize: 14, fontFamily: "Inter_400Regular", marginTop: 16, textAlign: "center" as const },
     footer: { height: isWeb ? 34 : insets.bottom + 20 },
   }));
@@ -149,7 +166,7 @@ export default function ImageAnalyzerScreen() {
               ) : (
                 <>
                   <Feather name="refresh-cw" size={16} color="#fff" />
-                  <Text style={styles.analyzeBtnText}>Choose Another</Text>
+                  <Text style={styles.analyzeBtnText}>Choose Another Photo</Text>
                 </>
               )}
             </Pressable>
@@ -157,8 +174,8 @@ export default function ImageAnalyzerScreen() {
         ) : (
           <Pressable style={styles.uploadArea} onPress={pickImage}>
             <Feather name="camera" size={40} color={colors.primary} />
-            <Text style={styles.uploadText}>Tap to choose an image</Text>
-            <Text style={styles.uploadSub}>Our AI will identify products and find them for you</Text>
+            <Text style={styles.uploadText}>Tap to choose a photo</Text>
+            <Text style={styles.uploadSub}>AI identifies what's in the photo so you can search for it nearby</Text>
           </Pressable>
         )}
 
@@ -166,23 +183,29 @@ export default function ImageAnalyzerScreen() {
           <View style={{ alignItems: "center", marginTop: 24 }}>
             <ActivityIndicator color={colors.primary} />
             <Text style={{ color: colors.mutedForeground, marginTop: 8, fontFamily: "Inter_400Regular" }}>
-              Analyzing image...
+              Analyzing photo...
             </Text>
           </View>
         )}
 
-        {result && (
+        {!loading && query !== null && (
           <View style={styles.resultCard}>
-            <Text style={styles.resultLabel}>Description</Text>
-            <Text style={styles.resultText}>{result}</Text>
-            <Pressable
-              style={styles.searchBtn}
-              onPress={() => {
-                router.push({ pathname: "/search", params: { q: result } });
-              }}
-            >
-              <Text style={styles.searchBtnText}>Search for this</Text>
-            </Pressable>
+            <Text style={styles.resultLabel}>AI search</Text>
+            {query ? (
+              <>
+                <Text style={styles.resultText}>{query}</Text>
+                <Pressable
+                  style={styles.searchBtn}
+                  onPress={() => router.push({ pathname: "/search", params: { q: query } })}
+                >
+                  <Text style={styles.searchBtnText}>Search for this nearby</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Text style={styles.emptyResult}>
+                No product or service was recognized. Try a clearer photo.
+              </Text>
+            )}
           </View>
         )}
 

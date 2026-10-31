@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { useThemedStyles } from "@/hooks/useThemedStyles";
-import { getChatbotResponse } from "@/lib/api";
+import { ApiError, getChatbotResponse, type ChatTurn } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -47,22 +47,29 @@ export default function ChatbotScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const userMsg: Message = { id: Date.now().toString(), role: "user", content: text };
+    const history: ChatTurn[] = messages
+      .slice(0, 10)
+      .reverse()
+      .map(({ role, content }) => ({ role, content }));
     setMessages((prev) => [userMsg, ...prev]);
     setLoading(true);
 
     try {
-      const reply = await getChatbotResponse(text);
+      const reply = await getChatbotResponse(text, history);
       const assistantMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: reply,
+        content: reply || "I'm not sure how to answer that. Try asking about stores, services, or the app.",
       };
       setMessages((prev) => [assistantMsg, ...prev]);
-    } catch {
+    } catch (err) {
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, I couldn't connect to the server. Please try again later.",
+        content:
+          err instanceof ApiError
+            ? err.message
+            : "Sorry, I couldn't reach the assistant. Please try again in a moment.",
       };
       setMessages((prev) => [errorMsg, ...prev]);
     } finally {

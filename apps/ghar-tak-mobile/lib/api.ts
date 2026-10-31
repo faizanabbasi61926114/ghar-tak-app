@@ -18,46 +18,46 @@ const getBaseUrl = () => {
   return "";
 };
 
-export async function getChatbotResponse(message: string): Promise<string> {
-  const res = await fetch(`${getBaseUrl()}/api/ai/chatbot`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
-  });
-  if (!res.ok) throw new Error("Chatbot request failed");
-  const data = (await res.json()) as { response: string };
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+async function postAI<T>(path: string, body: unknown): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${getBaseUrl()}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError("Can't reach the Ghar Tak server. Check your connection and try again.", 0);
+  }
+
+  const data = (await res.json().catch(() => null)) as { error?: string } | null;
+  if (!res.ok) {
+    throw new ApiError(data?.error || "Something went wrong. Please try again.", res.status);
+  }
+  return data as T;
+}
+
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export async function getChatbotResponse(message: string, history?: ChatTurn[]): Promise<string> {
+  const data = await postAI<{ response: string }>("/api/ai/chatbot", { message, history });
   return data.response;
 }
 
 export async function analyzeImageForSearch(imageDataUri: string): Promise<string> {
-  const res = await fetch(`${getBaseUrl()}/api/ai/analyze-image`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageDataUri }),
-  });
-  if (!res.ok) throw new Error("Image analysis failed");
-  const data = (await res.json()) as { searchQuery: string };
-  return data.searchQuery;
-}
-
-export async function describeImage(imageDataUri: string): Promise<string> {
-  const res = await fetch(`${getBaseUrl()}/api/ai/describe-image`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageDataUri }),
-  });
-  if (!res.ok) throw new Error("Image description failed");
-  const data = (await res.json()) as { description: string };
-  return data.description;
-}
-
-export async function getRecommendations(): Promise<string[]> {
-  const res = await fetch(`${getBaseUrl()}/api/ai/recommendations`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  });
-  if (!res.ok) throw new Error("Recommendations request failed");
-  const data = (await res.json()) as { recommendations: string[] };
-  return data.recommendations ?? [];
+  const data = await postAI<{ searchQuery: string }>("/api/ai/analyze-image", { imageDataUri });
+  return (data.searchQuery ?? "").trim();
 }

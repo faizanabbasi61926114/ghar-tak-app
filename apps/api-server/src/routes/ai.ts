@@ -1,8 +1,11 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { requireAuth } from "./auth";
 
 const router: IRouter = Router();
+
+// These routes are stateless helpers (no user data is read or written), so they
+// are intentionally open: the mobile app authenticates with Firebase/guest and
+// has no Clerk session to present.
 
 /**
  * Wraps an AI route handler: OpenAI SDK errors (e.g. rejected images) no longer
@@ -20,7 +23,9 @@ function safe(
       req.log.error({ err }, "AI route error");
       if (res.headersSent) return;
       const status = (err as { status?: number })?.status;
-      if (typeof status === "number" && status >= 400 && status < 500) {
+      if (status === 429) {
+        res.status(503).json({ error: "The AI service has reached its usage limit. Please try again later." });
+      } else if (typeof status === "number" && status >= 400 && status < 500) {
         res.status(400).json({ error: invalidInputMessage });
       } else {
         res.status(502).json({ error: "The AI service is temporarily unavailable. Please try again in a moment." });
@@ -29,7 +34,7 @@ function safe(
   };
 }
 
-router.post("/ai/analyze-image", requireAuth, safe(async (req, res) => {
+router.post("/ai/analyze-image", safe(async (req, res) => {
   const { imageDataUri } = req.body as { imageDataUri?: string };
 
   if (!imageDataUri || typeof imageDataUri !== "string") {
@@ -64,7 +69,7 @@ Generate ONLY the search query (e.g. "red running shoe", "plumber sink repair").
   res.json({ searchQuery });
 }, "That image couldn't be processed. Please try a clear JPEG or PNG photo."));
 
-router.post("/ai/describe-image", requireAuth, safe(async (req, res) => {
+router.post("/ai/describe-image", safe(async (req, res) => {
   const { imageDataUri } = req.body as { imageDataUri?: string };
 
   if (!imageDataUri || typeof imageDataUri !== "string") {
@@ -97,13 +102,27 @@ Include: the main subject(s), the setting or background, notable colors/styles/t
   res.json({ description });
 }, "That image couldn't be processed. Please try a clear JPEG or PNG photo."));
 
-router.post("/ai/chatbot", requireAuth, safe(async (req, res) => {
-  const { message } = req.body as { message?: string };
+type ChatTurn = { role: "user" | "assistant"; content: string };
 
-  if (!message || typeof message !== "string") {
+router.post("/ai/chatbot", safe(async (req, res) => {
+  const { message, history } = req.body as { message?: string; history?: unknown };
+
+  if (!message || typeof message !== "string" || !message.trim()) {
     res.status(400).json({ error: "message is required" });
     return;
   }
+
+  const turns: ChatTurn[] = (Array.isArray(history) ? history : [])
+    .filter(
+      (turn): turn is ChatTurn =>
+        !!turn &&
+        typeof turn === "object" &&
+        ((turn as ChatTurn).role === "user" || (turn as ChatTurn).role === "assistant") &&
+        typeof (turn as ChatTurn).content === "string" &&
+        (turn as ChatTurn).content.trim().length > 0,
+    )
+    .slice(-10)
+    .map((turn) => ({ role: turn.role, content: turn.content.slice(0, 1000) }));
 
   const completion = await openai.chat.completions.create({
     model: "gpt-5.4",
@@ -119,11 +138,14 @@ Key features of Ghar Tak:
 - It has AI-powered search, image search, QR code scanning, and a provider dashboard for sellers.
 - The app operates across many cities.
 
-If a user asks something outside your scope, politely explain you are the Ghar Tak assistant.`,
+If a user asks something outside your scope, politely explain you are the Ghar Tak assistant.
+
+When the user shares raw QR code content that is not a Ghar Tak link, explain what it appears to contain and what it might be used for in at most two short sentences.`,
       },
+      ...turns,
       {
         role: "user",
-        content: message,
+        content: message.slice(0, 2000),
       },
     ],
   });
@@ -132,7 +154,7 @@ If a user asks something outside your scope, politely explain you are the Ghar T
   res.json({ response });
 }, "The assistant couldn't process that message. Please rephrase and try again."));
 
-router.post("/ai/recommendations", requireAuth, safe(async (req, res) => {
+router.post("/ai/recommendations", safe(async (req, res) => {
   const { userLocation, pastPurchases, nearbyStores } = req.body as {
     userLocation?: { latitude: number; longitude: number };
     pastPurchases?: string[];

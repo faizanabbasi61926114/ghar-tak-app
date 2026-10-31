@@ -2,11 +2,12 @@ import { Feather } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,10 +15,13 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useColors } from "@/hooks/useColors";
+import { useColors, type AppColors } from "@/hooks/useColors";
 import { useThemedStyles } from "@/hooks/useThemedStyles";
+import { ApiError, getChatbotResponse } from "@/lib/api";
 
-function parseQRCode(data: string): { pathname: string; params?: Record<string, string> } | null {
+type Destination = { pathname: string; params?: Record<string, string> };
+
+function parseQRCode(data: string): Destination | null {
   if (data.includes("store/")) {
     const id = data.split("store/")[1]?.split(/[^a-z0-9_-]/i)[0] ?? "";
     return id ? { pathname: "/store/[id]", params: { id } } : null;
@@ -30,17 +34,138 @@ function parseQRCode(data: string): { pathname: string; params?: Record<string, 
     const category = data.split("service/")[1]?.split(/[^a-z0-9_-]/i)[0] ?? "";
     return category ? { pathname: "/service/[category]", params: { category } } : null;
   }
-  return { pathname: "/search", params: { q: data } };
+  return null;
 }
 
-function WebFallback({ colors, insets }: { colors: ReturnType<typeof useColors>; insets: ReturnType<typeof import("react-native-safe-area-context").useSafeAreaInsets> }) {
-  const [manualCode, setManualCode] = useState("");
+function UnknownCodeCard({
+  code,
+  colors,
+  onScanAgain,
+}: {
+  code: string;
+  colors: AppColors;
+  onScanAgain?: () => void;
+}) {
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleManual = () => {
-    const code = manualCode.trim();
+  const askAI = async () => {
+    setAsking(true);
+    setError(null);
+    try {
+      const reply = await getChatbotResponse(
+        `A user scanned a QR code that contains: "${code.slice(0, 500)}". In at most two short sentences, explain what this QR code likely contains or is used for. If it is a website link, mention which site it points to.`,
+      );
+      setAnswer(reply);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't ask the assistant. Please try again.");
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  const styles = useThemedStyles(() => StyleSheet.create({
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 18,
+      gap: 12,
+    },
+    label: {
+      fontSize: 12,
+      color: colors.primary,
+      fontFamily: "Inter_600SemiBold",
+      textTransform: "uppercase" as const,
+      letterSpacing: 1,
+    },
+    code: { fontSize: 15, color: colors.foreground, fontFamily: "Inter_500Medium" },
+    actions: { flexDirection: "row", gap: 10 },
+    primaryBtn: {
+      flex: 1,
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      paddingVertical: 12,
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 6,
+    },
+    primaryText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+    secondaryBtn: {
+      flex: 1,
+      backgroundColor: colors.secondary,
+      borderRadius: 12,
+      paddingVertical: 12,
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 6,
+    },
+    secondaryText: { color: colors.foreground, fontSize: 14, fontFamily: "Inter_600SemiBold" },
+    answer: {
+      backgroundColor: colors.secondary,
+      borderRadius: 12,
+      padding: 12,
+      fontSize: 14,
+      lineHeight: 20,
+      color: colors.foreground,
+      fontFamily: "Inter_400Regular",
+    },
+    error: { fontSize: 13, color: colors.destructive, fontFamily: "Inter_400Regular" },
+    rescan: { alignSelf: "center", paddingVertical: 4 },
+    rescanText: { fontSize: 13, color: colors.mutedForeground, fontFamily: "Inter_500Medium" },
+  }));
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.label}>Unrecognized QR code</Text>
+      <Text style={styles.code} numberOfLines={3}>{code}</Text>
+      <View style={styles.actions}>
+        <Pressable
+          style={styles.primaryBtn}
+          onPress={() => router.push({ pathname: "/search", params: { q: code } })}
+        >
+          <Feather name="search" size={15} color="#fff" />
+          <Text style={styles.primaryText}>Search Ghar Tak</Text>
+        </Pressable>
+        <Pressable style={styles.secondaryBtn} onPress={askAI} disabled={asking}>
+          {asking ? (
+            <ActivityIndicator size="small" color={colors.foreground} />
+          ) : (
+            <>
+              <Feather name="cpu" size={15} color={colors.foreground} />
+              <Text style={styles.secondaryText}>Ask AI</Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+      {answer && <Text style={styles.answer}>{answer}</Text>}
+      {error && <Text style={styles.error}>{error}</Text>}
+      {onScanAgain && (
+        <Pressable style={styles.rescan} onPress={onScanAgain}>
+          <Text style={styles.rescanText}>Scan another code</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+function WebFallback({ colors, insets }: { colors: AppColors; insets: { top: number; bottom: number } }) {
+  const [manualCode, setManualCode] = useState("");
+  const [unknownCode, setUnknownCode] = useState<string | null>(null);
+
+  const submit = (raw: string) => {
+    const code = raw.trim();
     if (!code) return;
     const destination = parseQRCode(code);
-    if (destination) router.push(destination as any);
+    if (destination) {
+      router.push(destination as any);
+      return;
+    }
+    setUnknownCode(code);
   };
 
   const styles = useThemedStyles(() => StyleSheet.create({
@@ -63,14 +188,14 @@ function WebFallback({ colors, insets }: { colors: ReturnType<typeof useColors>;
       justifyContent: "center",
     },
     title: { fontSize: 20, fontWeight: "700" as const, color: colors.foreground, fontFamily: "Inter_700Bold" },
-    body: { flex: 1, padding: 24, justifyContent: "center" },
+    body: { flexGrow: 1, padding: 24, justifyContent: "center", gap: 16 },
     notice: {
       backgroundColor: colors.secondary,
       borderRadius: 14,
       padding: 20,
       alignItems: "center",
       gap: 12,
-      marginBottom: 24,
+      marginBottom: 8,
     },
     noticeText: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: "center" as const },
     label: { fontSize: 14, fontWeight: "600" as const, color: colors.foreground, fontFamily: "Inter_600SemiBold", marginBottom: 8 },
@@ -95,7 +220,7 @@ function WebFallback({ colors, insets }: { colors: ReturnType<typeof useColors>;
       justifyContent: "center",
     },
     goBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
-    footer: { height: 34 },
+    footer: { height: insets.bottom + 20 },
   }));
 
   return (
@@ -106,30 +231,39 @@ function WebFallback({ colors, insets }: { colors: ReturnType<typeof useColors>;
         </Pressable>
         <Text style={styles.title}>QR Scanner</Text>
       </View>
-      <View style={styles.body}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.notice}>
           <Feather name="monitor" size={36} color={colors.mutedForeground} />
           <Text style={styles.noticeText}>
             Camera scanning is available on iOS and Android via the Expo Go app. On web, enter a code manually.
           </Text>
         </View>
-        <Text style={styles.label}>Enter Code Manually</Text>
-        <View style={styles.row}>
-          <TextInput
-            style={styles.input}
-            value={manualCode}
-            onChangeText={setManualCode}
-            placeholder="e.g. store/store1"
-            placeholderTextColor={colors.mutedForeground}
-            autoCapitalize="none"
-            returnKeyType="go"
-            onSubmitEditing={handleManual}
-          />
-          <Pressable style={styles.goBtn} onPress={handleManual}>
-            <Text style={styles.goBtnText}>Go</Text>
-          </Pressable>
+        <View>
+          <Text style={styles.label}>Enter Code Manually</Text>
+          <View style={styles.row}>
+            <TextInput
+              style={styles.input}
+              value={manualCode}
+              onChangeText={setManualCode}
+              placeholder="e.g. store/store1"
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              returnKeyType="go"
+              onSubmitEditing={() => submit(manualCode)}
+            />
+            <Pressable style={styles.goBtn} onPress={() => submit(manualCode)}>
+              <Text style={styles.goBtnText}>Go</Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
+        {unknownCode && (
+          <UnknownCodeCard
+            code={unknownCode}
+            colors={colors}
+            onScanAgain={() => setUnknownCode(null)}
+          />
+        )}
+      </ScrollView>
       <View style={styles.footer} />
     </View>
   );
@@ -140,6 +274,7 @@ export default function QRScannerScreen() {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const [unknownCode, setUnknownCode] = useState<string | null>(null);
   const [manualCode, setManualCode] = useState("");
   const isWeb = Platform.OS === "web";
 
@@ -147,21 +282,20 @@ export default function QRScannerScreen() {
     return <WebFallback colors={colors} insets={insets} />;
   }
 
-  const handleBarCodeScanned = async ({ data }: { data: string }) => {
-    if (scanned) return;
-    setScanned(true);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const handleCode = async (data: string, haptic: boolean) => {
     const destination = parseQRCode(data);
+    if (haptic) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (destination) {
       router.push(destination as any);
+      return;
     }
+    setScanned(true);
+    setUnknownCode(data);
   };
 
-  const handleManual = () => {
-    const code = manualCode.trim();
-    if (!code) return;
-    const destination = parseQRCode(code);
-    if (destination) router.push(destination as any);
+  const rescan = () => {
+    setScanned(false);
+    setUnknownCode(null);
   };
 
   const styles = useThemedStyles(() => StyleSheet.create({
@@ -236,14 +370,12 @@ export default function QRScannerScreen() {
       justifyContent: "center",
     },
     goBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
-    rescanBtn: {
-      backgroundColor: "#7c3aed",
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      borderRadius: 24,
-      marginTop: 20,
+    resultOverlay: {
+      position: "absolute" as const,
+      bottom: insets.bottom + 16,
+      left: 16,
+      right: 16,
     },
-    rescanText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
     permContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32, backgroundColor: colors.background },
     permTitle: { fontSize: 20, fontWeight: "700" as const, color: colors.foreground, fontFamily: "Inter_700Bold", marginTop: 16, textAlign: "center" as const },
     permSub: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 8, textAlign: "center" as const },
@@ -287,7 +419,7 @@ export default function QRScannerScreen() {
       <CameraView
         style={styles.camera}
         barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        onBarcodeScanned={scanned ? undefined : ({ data }) => handleCode(data, true)}
       >
         <View style={styles.overlay}>
           <View style={styles.topBar}>
@@ -300,33 +432,46 @@ export default function QRScannerScreen() {
             </View>
           </View>
 
-          <View style={styles.frame} />
+          {!unknownCode && (
+            <>
+              <View style={styles.frame} />
 
-          {scanned && (
-            <Pressable style={styles.rescanBtn} onPress={() => setScanned(false)}>
-              <Text style={styles.rescanText}>Tap to Scan Again</Text>
-            </Pressable>
+              <View style={styles.hint}>
+                <Text style={styles.hintText}>Or enter a code manually below</Text>
+              </View>
+
+              <View style={styles.manualSection}>
+                <TextInput
+                  style={styles.input}
+                  value={manualCode}
+                  onChangeText={setManualCode}
+                  placeholder="e.g. store/store1"
+                  placeholderTextColor="rgba(255,255,255,0.5)"
+                  autoCapitalize="none"
+                  returnKeyType="go"
+                  onSubmitEditing={() => {
+                    const code = manualCode.trim();
+                    if (code) handleCode(code, false);
+                  }}
+                />
+                <Pressable
+                  style={styles.goBtn}
+                  onPress={() => {
+                    const code = manualCode.trim();
+                    if (code) handleCode(code, false);
+                  }}
+                >
+                  <Text style={styles.goBtnText}>Go</Text>
+                </Pressable>
+              </View>
+            </>
           )}
 
-          <View style={styles.hint}>
-            <Text style={styles.hintText}>Or enter a code manually below</Text>
-          </View>
-
-          <View style={styles.manualSection}>
-            <TextInput
-              style={styles.input}
-              value={manualCode}
-              onChangeText={setManualCode}
-              placeholder="e.g. store/store1"
-              placeholderTextColor="rgba(255,255,255,0.5)"
-              autoCapitalize="none"
-              returnKeyType="go"
-              onSubmitEditing={handleManual}
-            />
-            <Pressable style={styles.goBtn} onPress={handleManual}>
-              <Text style={styles.goBtnText}>Go</Text>
-            </Pressable>
-          </View>
+          {unknownCode && (
+            <View style={styles.resultOverlay}>
+              <UnknownCodeCard code={unknownCode} colors={colors} onScanAgain={rescan} />
+            </View>
+          )}
         </View>
       </CameraView>
     </View>
