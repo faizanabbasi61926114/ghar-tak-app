@@ -257,26 +257,29 @@ export default function ProfilePage() {
           ) : (
             <div className="space-y-4">
               {orders.map((order) => (
-                <Card key={order.id}>
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                      <Package className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold">{order.providerName}</h3>
-                        <Badge className={statusColor(order.status)}>{order.status}</Badge>
+                <Link key={order.id} href={`/orders/${order.id}`}>
+                  <Card className="cursor-pointer transition-shadow hover:shadow-md">
+                    <CardContent className="p-4 flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                        <Package className="h-8 w-8 text-muted-foreground" />
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {order.items.map(item => `${item.quantity}x ${item.name}`).join(", ")}
-                      </p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-sm font-medium">PKR {order.total}</span>
-                        <span className="text-xs text-muted-foreground">{new Date(order.createdAt).toLocaleDateString()}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold">{order.providerName}</h3>
+                          <Badge className={statusColor(order.status)}>{order.status}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {order.items.map(item => `${item.quantity}x ${item.name}`).join(", ")}
+                        </p>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-sm font-medium">PKR {order.total}</span>
+                          <span className="text-xs text-muted-foreground">{new Date(order.createdAt).toLocaleDateString()}</span>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
             </div>
           )}

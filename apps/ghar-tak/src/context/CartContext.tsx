@@ -14,6 +14,7 @@ interface CartContextType {
   openCart: () => void;
   closeCart: () => void;
   addItem: (product: Product, providerId: string, providerName: string) => 'added' | 'replaced';
+  addItems: (items: CartItem[], providerId: string, providerName: string) => 'added' | 'replaced';
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -60,6 +61,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return result;
     },
     [providerId]
+  );
+
+  const addItems = useCallback(
+    (newItems: CartItem[], newProviderId: string, newProviderName: string): 'added' | 'replaced' => {
+      const replacing = items.length > 0 && providerId !== null && providerId !== newProviderId;
+
+      setItems((prev) => {
+        const base = replacing ? [] : prev;
+        const merged = base.map((item) => ({ ...item }));
+        for (const newItem of newItems) {
+          const existing = merged.find((item) => item.product.id === newItem.product.id);
+          if (existing) {
+            existing.quantity += newItem.quantity;
+          } else {
+            merged.push({ ...newItem });
+          }
+        }
+        return merged;
+      });
+      setProviderId(newProviderId);
+      setProviderName(newProviderName);
+
+      return replacing ? 'replaced' : 'added';
+    },
+    [items, providerId]
   );
 
   const removeItem = useCallback((productId: string) => {
@@ -109,6 +135,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         openCart,
         closeCart,
         addItem,
+        addItems,
         removeItem,
         updateQuantity,
         clearCart,

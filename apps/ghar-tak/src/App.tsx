@@ -20,6 +20,8 @@ import ServiceProviderDetailPage from "@/pages/services/[id]";
 import StoresPage from "@/pages/stores";
 import StoreDetailPage from "@/pages/stores/[id]";
 import SearchPage from "@/pages/search";
+import CheckoutPage from "@/pages/checkout";
+import OrderTrackingPage from "@/pages/orders/[id]";
 import FavoritesPage from "@/pages/favorites";
 import ProfilePage from "@/pages/profile";
 import MessagesPage from "@/pages/messages";
@@ -189,6 +191,8 @@ function Router() {
       <Route path="/stores" component={StoresPage} />
       <Route path="/stores/:id" component={StoreDetailPage} />
       <Route path="/search" component={SearchPage} />
+      <Route path="/checkout" component={CheckoutPage} />
+      <Route path="/orders/:id" component={OrderTrackingPage} />
       <Route path="/favorites" component={FavoritesPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route path="/messages" component={MessagesPage} />
