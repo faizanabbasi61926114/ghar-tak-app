@@ -5,6 +5,8 @@ import ProductCard from '@/components/shared/ProductCard';
 import { ShoppingBag, Loader2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useLocation } from '@/hooks/useLocation';
+import { sortByDistance } from '@/lib/geo';
 
 function StoreProducts({ storeId, storeName }: { storeId: string; storeName: string }) {
   const { data: products, isLoading } = useListProviderProducts(storeId, undefined, { query: { enabled: !!storeId, queryKey: ["listProviderProducts", storeId] } });
@@ -38,8 +40,13 @@ export default function ShopByStoreSection() {
   const { data: stores, isLoading: storesLoading } = useListProviders({ type: 'store' }, { query: { queryKey: ["listProviders", { type: 'store' }] } });
 
   const [selectedStoreId, setSelectedStoreId] = useState('');
+  const { location, hasRealLocation } = useLocation();
 
-  const displayedStores = Array.isArray(stores) ? stores.slice(0, 3) : [];
+  const displayedStores = useMemo(() => {
+    const storeList = Array.isArray(stores) ? stores : [];
+    const origin = hasRealLocation ? location : null;
+    return sortByDistance(storeList, origin).slice(0, 3);
+  }, [stores, location, hasRealLocation]);
 
   useEffect(() => {
     if (displayedStores.length > 0 && !selectedStoreId) {

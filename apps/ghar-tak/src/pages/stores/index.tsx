@@ -2,9 +2,19 @@ import { useListProviders } from '@workspace/api-client-react';
 import StoreCard from '@/components/shared/StoreCard';
 import SearchInput from '@/components/shared/SearchInput';
 import { ShoppingCart, Loader2 } from 'lucide-react';
+import { useMemo } from 'react';
+import { useLocation } from '@/hooks/useLocation';
+import { providerDistance, sortByDistance } from '@/lib/geo';
 
 export default function AllStoresPage() {
   const { data: stores, isLoading } = useListProviders({ type: 'store' }, { query: { queryKey: ["listProviders", { type: 'store' }] } });
+  const { location, hasRealLocation } = useLocation();
+  const origin = hasRealLocation ? location : null;
+
+  const sortedStores = useMemo(
+    () => sortByDistance(Array.isArray(stores) ? stores : [], origin),
+    [stores, origin]
+  );
   
   return (
     <div className="space-y-8">
@@ -22,12 +32,12 @@ export default function AllStoresPage() {
         <div className="flex justify-center py-10">
           <Loader2 className="animate-spin text-primary h-8 w-8" />
         </div>
-      ) : !Array.isArray(stores) || stores.length === 0 ? (
+      ) : sortedStores.length === 0 ? (
         <p className="text-muted-foreground text-center py-10">No stores available at the moment.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {stores.map((store) => (
-            <StoreCard key={store.id} store={store} />
+          {sortedStores.map((store) => (
+            <StoreCard key={store.id} store={store} distanceKm={providerDistance(origin, store)} />
           ))}
         </div>
       )}

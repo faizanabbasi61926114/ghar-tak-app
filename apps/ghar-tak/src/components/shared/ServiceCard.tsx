@@ -3,15 +3,17 @@ import { Provider } from '@workspace/api-client-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Star, CalendarClock, Heart, ShoppingBag } from 'lucide-react';
+import { MapPin, Star, CalendarClock, Heart, Navigation } from 'lucide-react';
+import { formatDistance } from '@/lib/geo';
 
 interface ServiceCardProps {
   serviceProvider: Provider;
   onToggleFavorite?: (serviceProviderId: string) => void;
   isFavorite?: boolean;
+  distanceKm?: number | null;
 }
 
-export default function ServiceCard({ serviceProvider, onToggleFavorite, isFavorite }: ServiceCardProps) {
+export default function ServiceCard({ serviceProvider, onToggleFavorite, isFavorite, distanceKm }: ServiceCardProps) {
   const handleFavoriteClick = () => {
     if (onToggleFavorite) {
       onToggleFavorite(serviceProvider.id);
@@ -53,6 +55,12 @@ export default function ServiceCard({ serviceProvider, onToggleFavorite, isFavor
             <MapPin className="h-3 w-3 mr-1.5 flex-shrink-0" />
             <span className="truncate">{serviceProvider.address || 'Service area varies'}</span>
           </div>
+          {typeof distanceKm === 'number' && (
+            <div className="flex items-center">
+              <Navigation className="h-3 w-3 mr-1.5 flex-shrink-0" />
+              <span>{formatDistance(distanceKm)} away</span>
+            </div>
+          )}
           <div className="flex items-center">
             <CalendarClock className="h-3 w-3 mr-1.5 flex-shrink-0" />
             <span>{serviceProvider.openingHours || 'Contact for availability'}</span>

@@ -1,0 +1,43 @@
+export interface Coords {
+  lat: number;
+  lng: number;
+}
+
+const EARTH_RADIUS_KM = 6371;
+
+function toRadians(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
+export function distanceKm(from: Coords, to: Coords): number {
+  const dLat = toRadians(to.lat - from.lat);
+  const dLng = toRadians(to.lng - from.lng);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(from.lat)) * Math.cos(toRadians(to.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+export function formatDistance(km: number): string {
+  if (km < 1) return `${Math.max(50, Math.round((km * 1000) / 50) * 50)} m`;
+  return `${km.toFixed(1)} km`;
+}
+
+interface Located {
+  lat?: number | null;
+  lng?: number | null;
+}
+
+export function providerDistance(origin: Coords | null, provider: Located): number | null {
+  if (!origin || provider.lat == null || provider.lng == null) return null;
+  return distanceKm(origin, { lat: provider.lat, lng: provider.lng });
+}
+
+export function sortByDistance<T extends Located>(items: T[], origin: Coords | null): T[] {
+  if (!origin) return items;
+  return [...items].sort((a, b) => {
+    const da = providerDistance(origin, a) ?? Number.POSITIVE_INFINITY;
+    const db = providerDistance(origin, b) ?? Number.POSITIVE_INFINITY;
+    return da === db ? 0 : da - db;
+  });
+}

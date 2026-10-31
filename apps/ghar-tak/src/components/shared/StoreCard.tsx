@@ -3,14 +3,16 @@ import { Provider } from '@workspace/api-client-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Heart, MapPin, Star, Clock } from 'lucide-react';
+import { Heart, MapPin, Star, Clock, Navigation } from 'lucide-react';
 import { useFavorites } from '@/hooks/useFavorites';
+import { formatDistance } from '@/lib/geo';
 
 interface StoreCardProps {
   store: Provider;
+  distanceKm?: number | null;
 }
 
-export default function StoreCard({ store }: StoreCardProps) {
+export default function StoreCard({ store, distanceKm }: StoreCardProps) {
   const { favouriteIds, toggleFavourite } = useFavorites();
   const isFav = favouriteIds.has(store.id);
 
@@ -54,6 +56,12 @@ export default function StoreCard({ store }: StoreCardProps) {
         </div>
 
         <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+          {typeof distanceKm === 'number' && (
+            <div className="flex items-center">
+              <Navigation className="h-3 w-3 mr-1" />
+              <span>{formatDistance(distanceKm)} away</span>
+            </div>
+          )}
           {store.rating > 0 && (
             <div className="flex items-center">
               <Star className="h-3 w-3 mr-1 text-yellow-500 fill-yellow-500" />

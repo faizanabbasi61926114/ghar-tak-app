@@ -1,17 +1,80 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useUser } from '@clerk/react';
+import { useListMyOrders, useListProviders, useListProviderProducts } from '@workspace/api-client-react';
 import { getPersonalizedProductRecommendations, PersonalizedProductRecommendationsInput } from '@/ai/flows/product-recommendations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { ArrowRight, Loader2, Search } from 'lucide-react';
 import { Link } from 'wouter';
+import { useLocation } from '@/hooks/useLocation';
+import { sortByDistance } from '@/lib/geo';
+
+const NEAREST_STORES = 3;
+const MAX_PRODUCTS_PER_STORE = 8;
 
 export default function PersonalizedSuggestionsSection() {
   const { user, isLoaded } = useUser();
+  const { location, hasRealLocation } = useLocation();
   const [recommendations, setRecommendations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: stores, isLoading: storesLoading } = useListProviders(
+    { type: 'store' },
+    { query: { queryKey: ["listProviders", { type: 'store' }] } }
+  );
+  const { data: orders, isLoading: ordersLoading } = useListMyOrders({
+    query: { enabled: !!user, queryKey: ["listMyOrders"] },
+  });
+
+  const origin = hasRealLocation ? location : null;
+
+  const nearestStores = useMemo(
+    () => sortByDistance(Array.isArray(stores) ? stores : [], origin).slice(0, NEAREST_STORES),
+    [stores, origin]
+  );
+
+  const store1 = nearestStores[0]?.id ?? '';
+  const store2 = nearestStores[1]?.id ?? '';
+  const store3 = nearestStores[2]?.id ?? '';
+
+  const { data: products1, isLoading: products1Loading } = useListProviderProducts(store1, undefined, {
+    query: { enabled: !!store1, queryKey: ["listProviderProducts", store1] },
+  });
+  const { data: products2, isLoading: products2Loading } = useListProviderProducts(store2, undefined, {
+    query: { enabled: !!store2, queryKey: ["listProviderProducts", store2] },
+  });
+  const { data: products3, isLoading: products3Loading } = useListProviderProducts(store3, undefined, {
+    query: { enabled: !!store3, queryKey: ["listProviderProducts", store3] },
+  });
+
+  const isLoadingContext =
+    storesLoading || ordersLoading || products1Loading || products2Loading || products3Loading;
+
+  const recommendationInput = useMemo<PersonalizedProductRecommendationsInput>(() => {
+    const productLists = [products1, products2, products3];
+    const nearbyStores = nearestStores
+      .map((store, index) => ({
+        storeName: store.name,
+        products: (productLists[index] ?? []).map((product) => product.name).slice(0, MAX_PRODUCTS_PER_STORE),
+      }))
+      .filter((store) => store.products.length > 0);
+
+    const pastPurchases = Array.from(
+      new Set(
+        (Array.isArray(orders) ? orders : [])
+          .filter((order) => order.status !== 'cancelled')
+          .flatMap((order) => order.items.map((item) => item.name))
+      )
+    ).slice(0, 10);
+
+    const input: PersonalizedProductRecommendationsInput = {};
+    if (location) input.userLocation = { latitude: location.lat, longitude: location.lng };
+    if (pastPurchases.length) input.pastPurchases = pastPurchases;
+    if (nearbyStores.length) input.nearbyStores = nearbyStores;
+    return input;
+  }, [nearestStores, products1, products2, products3, orders, location]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -19,40 +82,39 @@ export default function PersonalizedSuggestionsSection() {
       setIsLoading(false);
       return;
     }
+    if (isLoadingContext) {
+      setIsLoading(true);
+      return;
+    }
+    if (!recommendationInput.nearbyStores && !recommendationInput.pastPurchases && !recommendationInput.userLocation) {
+      setRecommendations([]);
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
     async function fetchRecommendations() {
       setIsLoading(true);
       setError(null);
       try {
-        const mockAIInput: PersonalizedProductRecommendationsInput = {
-          userLocation: { latitude: 31.4500, longitude: 74.2900 },
-          pastPurchases: ["Basmati Rice", "Cooking Oil"],
-          nearbyStores: [
-            {
-              storeName: "City Hypermarket",
-              products: ["Imported Groceries", "Electronics", "Clothing", "Bakery Items", "Perfumes"],
-            },
-            {
-              storeName: "Daily Needs Corner",
-              products: ["Fresh Naan", "Mithai", "Dairy Products", "Frozen Foods", "Snacks"],
-            },
-             {
-              storeName: "Quick Tech (Mock)",
-              products: ["Mobile Chargers", "Headphones", "Laptop Sleeves", "Power Banks"],
-            }
-          ],
-        };
-        const result = await getPersonalizedProductRecommendations(mockAIInput);
-        setRecommendations(result.recommendedProducts || []);
-      } catch (e) {
-        setError("Could not load suggestions at this time.");
-        setRecommendations([]);
+        const result = await getPersonalizedProductRecommendations(recommendationInput);
+        if (!cancelled) setRecommendations(result.recommendedProducts || []);
+      } catch {
+        if (!cancelled) {
+          setError("Could not load suggestions at this time.");
+          setRecommendations([]);
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }
 
     fetchRecommendations();
-  }, [isLoaded, user?.id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, user?.id, isLoadingContext, recommendationInput]);
 
   if (isLoading) {
     return (

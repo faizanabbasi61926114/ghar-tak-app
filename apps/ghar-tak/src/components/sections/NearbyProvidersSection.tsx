@@ -6,15 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'wouter';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import type { Provider } from '@workspace/api-client-react';
+import { useLocation } from '@/hooks/useLocation';
+import { providerDistance, sortByDistance } from '@/lib/geo';
 
 const SORTED_ITEMS_COUNT = 3;
 
 export default function NearbyProvidersSection() {
   const { data: stores, isLoading: storesLoading } = useListProviders({ type: 'store' }, { query: { queryKey: ["listProviders", { type: 'store' }] } });
   const { data: services, isLoading: servicesLoading } = useListProviders({ type: 'service' }, { query: { queryKey: ["listProviders", { type: 'service' }] } });
+  const { location, hasRealLocation } = useLocation();
 
-  const sortedStores = Array.isArray(stores) ? stores.slice(0, SORTED_ITEMS_COUNT) : [];
-  const sortedServiceProviders = Array.isArray(services) ? services.slice(0, SORTED_ITEMS_COUNT) : [];
+  const origin = hasRealLocation ? location : null;
+  const sortedStores = sortByDistance(Array.isArray(stores) ? stores : [], origin).slice(0, SORTED_ITEMS_COUNT);
+  const sortedServiceProviders = sortByDistance(Array.isArray(services) ? services : [], origin).slice(0, SORTED_ITEMS_COUNT);
 
   const renderContent = (
     isLoading: boolean,
@@ -40,8 +44,8 @@ export default function NearbyProvidersSection() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {items.map((item) => (
           type === 'store'
-            ? <StoreCard key={item.id} store={item} />
-            : <ServiceCard key={item.id} serviceProvider={item} />
+            ? <StoreCard key={item.id} store={item} distanceKm={providerDistance(origin, item)} />
+            : <ServiceCard key={item.id} serviceProvider={item} distanceKm={providerDistance(origin, item)} />
         ))}
       </div>
     );

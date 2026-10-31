@@ -4,6 +4,9 @@ import { Link } from 'wouter';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import SearchInput from '@/components/shared/SearchInput';
 import * as Icons from 'lucide-react';
+import { useMemo } from 'react';
+import { useLocation } from '@/hooks/useLocation';
+import { providerDistance, sortByDistance } from '@/lib/geo';
 
 export default function ServiceCategoryPage({ params }: { params: { category: string } }) {
   const { data: categories, isLoading: categoriesLoading } = useListCategories({ query: { queryKey: ["listCategories"] } });
@@ -11,6 +14,13 @@ export default function ServiceCategoryPage({ params }: { params: { category: st
   const category = categoriesList.find(c => c.id === params.category);
 
   const { data: providers, isLoading: providersLoading } = useListProviders({ type: 'service', category: params.category }, { query: { enabled: !!params.category, queryKey: ["listProviders", { type: 'service', category: params.category }] } });
+
+  const { location, hasRealLocation } = useLocation();
+  const origin = hasRealLocation ? location : null;
+  const sortedProviders = useMemo(
+    () => sortByDistance(Array.isArray(providers) ? providers : [], origin),
+    [providers, origin]
+  );
 
   if (categoriesLoading || providersLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>;
@@ -48,12 +58,12 @@ export default function ServiceCategoryPage({ params }: { params: { category: st
         </div>
       </div>
       
-      {!Array.isArray(providers) || providers.length === 0 ? (
+      {sortedProviders.length === 0 ? (
         <p className="text-muted-foreground text-center py-10">No {category.name.toLowerCase()} available in your area currently.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {providers.map((provider) => (
-            <ServiceCard key={provider.id} serviceProvider={provider} />
+          {sortedProviders.map((provider) => (
+            <ServiceCard key={provider.id} serviceProvider={provider} distanceKm={providerDistance(origin, provider)} />
           ))}
         </div>
       )}
