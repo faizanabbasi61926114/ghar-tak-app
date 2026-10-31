@@ -22,6 +22,12 @@ tags:
     description: Service and product categories
   - name: orders
     description: Customer orders
+  - name: addresses
+    description: Saved delivery addresses
+  - name: coupons
+    description: Discount coupons
+  - name: bookings
+    description: Service bookings
   - name: reviews
     description: Reviews for providers
   - name: plans
@@ -464,6 +470,215 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ─── Addresses ─────────────────────────────────────────────────────────────
+
+  /addresses:
+    get:
+      operationId: listAddresses
+      tags: [addresses]
+      summary: List the authenticated user's saved delivery addresses
+      responses:
+        "200":
+          description: List of addresses, default first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Address"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createAddress
+      tags: [addresses]
+      summary: Save a new delivery address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAddressRequest"
+      responses:
+        "201":
+          description: Address created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /addresses/{addressId}:
+    patch:
+      operationId: updateAddress
+      tags: [addresses]
+      summary: Update one of the authenticated user's addresses
+      parameters:
+        - $ref: "#/components/parameters/AddressId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAddressRequest"
+      responses:
+        "200":
+          description: Updated address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAddress
+      tags: [addresses]
+      summary: Delete one of the authenticated user's addresses
+      parameters:
+        - $ref: "#/components/parameters/AddressId"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─── Coupons ───────────────────────────────────────────────────────────────
+
+  /coupons/validate:
+    post:
+      operationId: validateCoupon
+      tags: [coupons]
+      summary: Validate a coupon code against an order subtotal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateCouponRequest"
+      responses:
+        "200":
+          description: Validation result with discount when valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CouponValidation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ─── Bookings ──────────────────────────────────────────────────────────────
+
+  /bookings:
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Book a service for a date and time slot (requires auth)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /my-bookings:
+    get:
+      operationId: listMyBookings
+      tags: [bookings]
+      summary: List the authenticated user's service bookings
+      responses:
+        "200":
+          description: List of bookings, upcoming first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /provider-bookings:
+    get:
+      operationId: listProviderBookings
+      tags: [bookings]
+      summary: List bookings received by the authenticated provider
+      responses:
+        "200":
+          description: List of bookings for the provider
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /bookings/{bookingId}:
+    patch:
+      operationId: updateBookingStatus
+      tags: [bookings]
+      summary: Update booking status (provider confirms/completes; either party cancels)
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBookingStatusRequest"
+      responses:
+        "200":
+          description: Updated booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          description: Invalid status or transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # ─── Reviews ───────────────────────────────────────────────────────────────
 
   /providers/{providerId}/reviews:
@@ -505,6 +720,23 @@ paths:
           $ref: "#/components/responses/Unauthorized"
 
   # ─── Messages ──────────────────────────────────────────────────────────────
+
+  /services/{serviceId}/reviews:
+    get:
+      operationId: listServiceReviews
+      tags: [reviews]
+      summary: List reviews for a specific service
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      responses:
+        "200":
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
 
   /providers/{providerId}/messages:
     post:
@@ -759,6 +991,18 @@ components:
       required: true
       schema:
         type: string
+    AddressId:
+      name: addressId
+      in: path
+      required: true
+      schema:
+        type: string
+    BookingId:
+      name: bookingId
+      in: path
+      required: true
+      schema:
+        type: string
 
   responses:
     Unauthorized:
@@ -880,6 +1124,8 @@ components:
           type: [string, "null"]
         category:
           type: [string, "null"]
+        isVerified:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -1094,7 +1340,7 @@ components:
 
     Order:
       type: object
-      required: [id, customerId, providerId, providerName, status, total, paymentMethod, items, createdAt]
+      required: [id, customerId, providerId, providerName, status, total, paymentMethod, items, deliveryFee, discount, statusHistory, createdAt]
       properties:
         id:
           type: string
@@ -1122,10 +1368,30 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OrderItem"
+        deliveryFee:
+          type: number
+        discount:
+          type: number
+        couponCode:
+          type: [string, "null"]
+        statusHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusHistoryEvent"
         createdAt:
           type: string
           format: date-time
         updatedAt:
+          type: string
+          format: date-time
+
+    StatusHistoryEvent:
+      type: object
+      required: [status, at]
+      properties:
+        status:
+          type: string
+        at:
           type: string
           format: date-time
 
@@ -1146,6 +1412,10 @@ components:
           type: string
         notes:
           type: string
+        deliveryFee:
+          type: number
+        couponCode:
+          type: string
 
     UpdateOrderStatusRequest:
       type: object
@@ -1163,6 +1433,8 @@ components:
           type: string
         providerId:
           type: string
+        serviceId:
+          type: [string, "null"]
         customerId:
           type: string
         customerName:
@@ -1191,6 +1463,152 @@ components:
           maximum: 5
         comment:
           type: string
+        serviceId:
+          type: string
+
+    Address:
+      type: object
+      required: [id, label, line1, city, isDefault, createdAt]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        line1:
+          type: string
+        city:
+          type: string
+        phone:
+          type: [string, "null"]
+        instructions:
+          type: [string, "null"]
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateAddressRequest:
+      type: object
+      required: [line1, city]
+      properties:
+        label:
+          type: string
+        line1:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+        instructions:
+          type: string
+        isDefault:
+          type: boolean
+
+    UpdateAddressRequest:
+      type: object
+      properties:
+        label:
+          type: string
+        line1:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+        instructions:
+          type: string
+        isDefault:
+          type: boolean
+
+    ValidateCouponRequest:
+      type: object
+      required: [code, subtotal]
+      properties:
+        code:
+          type: string
+        subtotal:
+          type: number
+
+    CouponValidation:
+      type: object
+      required: [valid]
+      properties:
+        valid:
+          type: boolean
+        reason:
+          type: string
+        code:
+          type: string
+        description:
+          type: [string, "null"]
+        discount:
+          type: number
+
+    Booking:
+      type: object
+      required: [id, customerId, providerId, providerName, serviceId, serviceName, bookingDate, timeSlot, address, status, createdAt]
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        customerName:
+          type: [string, "null"]
+        providerId:
+          type: string
+        providerName:
+          type: string
+        serviceId:
+          type: string
+        serviceName:
+          type: string
+        priceRange:
+          type: [string, "null"]
+        bookingDate:
+          type: string
+          format: date-time
+        timeSlot:
+          type: string
+        address:
+          type: string
+        notes:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateBookingRequest:
+      type: object
+      required: [providerId, serviceId, bookingDate, timeSlot, address]
+      properties:
+        providerId:
+          type: string
+        serviceId:
+          type: string
+        bookingDate:
+          type: string
+          format: date-time
+        timeSlot:
+          type: string
+        address:
+          type: string
+        notes:
+          type: string
+
+    UpdateBookingStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled]
 
     Plan:
       type: object

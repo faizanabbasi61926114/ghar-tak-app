@@ -14,4 +14,6 @@ export interface CreateOrderRequest {
   paymentMethod: CreateOrderRequestPaymentMethod;
   deliveryAddress?: string;
   notes?: string;
+  deliveryFee?: number;
+  couponCode?: string;
 }

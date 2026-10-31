@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, ordersTable, providersTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { requireAuth } from "./auth";
+import { resolveCoupon } from "./coupons";
 
 const router: IRouter = Router();
 
@@ -18,6 +19,10 @@ function mapOrder(o: any) {
     deliveryAddress: o.deliveryAddress ?? null,
     notes: o.notes ?? null,
     items: Array.isArray(o.items) ? o.items : [],
+    deliveryFee: Number(o.deliveryFee ?? 0),
+    discount: Number(o.discount ?? 0),
+    couponCode: o.couponCode ?? null,
+    statusHistory: Array.isArray(o.statusHistory) ? o.statusHistory : [],
     createdAt: o.createdAt.toISOString(),
     updatedAt: o.updatedAt.toISOString(),
   };
@@ -56,10 +61,26 @@ router.post("/orders", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const total = (body.items as any[]).reduce(
+    const subtotal = (body.items as any[]).reduce(
       (sum: number, item: any) => sum + item.quantity * item.unitPrice,
       0,
     );
+
+    const deliveryFee = Math.max(0, Number(body.deliveryFee ?? 0));
+
+    let discount = 0;
+    let couponCode: string | null = null;
+    if (body.couponCode) {
+      const coupon = await resolveCoupon(String(body.couponCode), subtotal);
+      if (!coupon.valid) {
+        res.status(400).json({ error: coupon.reason });
+        return;
+      }
+      discount = coupon.discount;
+      couponCode = coupon.code;
+    }
+
+    const total = subtotal + deliveryFee - discount;
 
     const [order] = await db
       .insert(ordersTable)
@@ -73,6 +94,10 @@ router.post("/orders", requireAuth, async (req: Request, res: Response) => {
         deliveryAddress: body.deliveryAddress ?? null,
         notes: body.notes ?? null,
         items: body.items,
+        deliveryFee: String(deliveryFee),
+        discount: String(discount),
+        couponCode,
+        statusHistory: [{ status: "pending", at: new Date().toISOString() }] as unknown as object[],
       })
       .returning();
 
@@ -158,9 +183,17 @@ router.patch("/orders/:orderId", requireAuth, async (req: Request, res: Response
       return;
     }
 
+    const history = Array.isArray(order.statusHistory) ? order.statusHistory : [];
     const [updated] = await db
       .update(ordersTable)
-      .set({ status, updatedAt: new Date() })
+      .set({
+        status,
+        statusHistory: [
+          ...history,
+          { status, at: new Date().toISOString() },
+        ] as unknown as object[],
+        updatedAt: new Date(),
+      })
       .where(eq(ordersTable.id, orderId))
       .returning();
 

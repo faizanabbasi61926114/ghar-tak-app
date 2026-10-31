@@ -27,6 +27,7 @@ function mapProvider(p: any, isFavorite = false) {
     isFavorite,
     planId: p.planId ?? null,
     category: p.category ?? null,
+    isVerified: p.isVerified ?? false,
     createdAt: p.createdAt.toISOString(),
   };
 }

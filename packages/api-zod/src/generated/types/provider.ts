@@ -40,5 +40,6 @@ export interface Provider {
   planId?: string | null;
   /** @nullable */
   category?: string | null;
+  isVerified?: boolean;
   createdAt: Date;
 }

@@ -25,6 +25,7 @@ export const providersTable = pgTable(
     reviewCount: integer("review_count").notNull().default(0),
     planId: varchar("plan_id", { length: 50 }),
     category: varchar("category", { length: 100 }),
+    isVerified: boolean("is_verified").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },

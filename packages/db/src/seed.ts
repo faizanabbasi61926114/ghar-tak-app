@@ -1,4 +1,5 @@
 import { db, pool } from "./index";
+import { eq, inArray } from "drizzle-orm";
 import {
   usersTable,
   providersTable,
@@ -7,6 +8,8 @@ import {
   reviewsTable,
   ordersTable,
   subscriptionsTable,
+  couponsTable,
+  bookingsTable,
 } from "./schema";
 
 const img = (w = 600, h = 400) => `https://placehold.co/${w}x${h}.png`;
@@ -58,6 +61,7 @@ async function seed() {
         rating: "4.5",
         reviewCount: 128,
         planId: "growth",
+        isVerified: true,
       },
       {
         id: "store2",
@@ -80,6 +84,7 @@ async function seed() {
         rating: "4.8",
         reviewCount: 96,
         planId: "growth",
+        isVerified: true,
       },
       {
         id: "store3",
@@ -168,6 +173,7 @@ async function seed() {
         rating: "4.7",
         reviewCount: 83,
         planId: "pro",
+        isVerified: true,
       },
       {
         id: "sp2",
@@ -190,6 +196,7 @@ async function seed() {
         rating: "4.9",
         reviewCount: 150,
         planId: "growth",
+        isVerified: true,
       },
       {
         id: "sp3",
@@ -256,6 +263,7 @@ async function seed() {
         rating: "4.8",
         reviewCount: 132,
         planId: "pro",
+        isVerified: true,
       },
       {
         id: "sp6",
@@ -346,10 +354,20 @@ async function seed() {
         providerId: "store1",
         providerName: "Al-Baraka General Store",
         status: "delivered",
-        total: "650",
+        total: "710",
         paymentMethod: "cash_on_delivery",
         deliveryAddress: "House 12, Block B, Gulberg III, Lahore",
         notes: "Please leave with the guard.",
+        deliveryFee: "100",
+        discount: "100",
+        couponCode: "WELCOME10",
+        statusHistory: [
+          { status: "pending", at: "2026-10-18T10:00:00.000Z" },
+          { status: "confirmed", at: "2026-10-18T10:05:00.000Z" },
+          { status: "processing", at: "2026-10-18T10:20:00.000Z" },
+          { status: "shipped", at: "2026-10-18T10:45:00.000Z" },
+          { status: "delivered", at: "2026-10-18T11:10:00.000Z" },
+        ] as unknown as object[],
         items: [
           { id: "prod1", name: "Desi Mangoes (1 kg)", price: "350", quantity: 1 },
           { id: "prod2", name: "Fresh Milk (1 litre)", price: "180", quantity: 2 },
@@ -361,11 +379,19 @@ async function seed() {
         customerName: "Imran Qureshi",
         providerId: "store3",
         providerName: "Bundu Khan Restaurant",
-        status: "in_transit",
-        total: "1400",
+        status: "shipped",
+        total: "1500",
         paymentMethod: "cash_on_delivery",
         deliveryAddress: "Office 4, MM Alam Road, Lahore",
         notes: "",
+        deliveryFee: "100",
+        discount: "0",
+        statusHistory: [
+          { status: "pending", at: "2026-10-21T13:00:00.000Z" },
+          { status: "confirmed", at: "2026-10-21T13:03:00.000Z" },
+          { status: "processing", at: "2026-10-21T13:25:00.000Z" },
+          { status: "shipped", at: "2026-10-21T13:50:00.000Z" },
+        ] as unknown as object[],
         items: [
           { id: "prod5", name: "Chicken Biryani (1 plate)", price: "450", quantity: 2 },
           { id: "prod13", name: "Seekh Kabab Platter (10 pcs)", price: "950", quantity: 1 },
@@ -374,9 +400,54 @@ async function seed() {
     ])
     .onConflictDoNothing();
 
+  await db
+    .insert(couponsTable)
+    .values([
+      {
+        id: "coupon1",
+        code: "WELCOME10",
+        description: "10% off your first order over PKR 500",
+        type: "percent",
+        value: "10",
+        minOrder: "500",
+        maxDiscount: "300",
+        active: true,
+      },
+      {
+        id: "coupon2",
+        code: "SAVE500",
+        description: "Flat PKR 500 off orders over PKR 2,000",
+        type: "fixed",
+        value: "500",
+        minOrder: "2000",
+        active: true,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(bookingsTable)
+    .values([
+      {
+        id: "booking1",
+        customerId: "demo-customer-4",
+        customerName: "Imran Qureshi",
+        providerId: "sp1",
+        providerName: "Ustad Raza Plumbing",
+        serviceId: "svc1",
+        serviceName: "Leak Repair",
+        priceRange: "PKR 500 - 1,500",
+        bookingDate: new Date("2026-10-24T09:00:00.000Z"),
+        timeSlot: "10:00 - 11:00",
+        address: "House 8, Block C, Gulberg III, Lahore",
+        notes: "Kitchen sink pipe is leaking.",
+        status: "confirmed",
+      },
+    ])
+    .onConflictDoNothing();
+
   const periodEnd = new Date();
   periodEnd.setMonth(periodEnd.getMonth() + 1);
-
   await db
     .insert(subscriptionsTable)
     .values([
@@ -384,6 +455,44 @@ async function seed() {
       { id: "sub2", providerId: "sp1", planId: "pro", planName: "Pro", status: "active", currentPeriodEnd: periodEnd },
     ])
     .onConflictDoNothing();
+
+  // Refresh demo rows that may pre-date newer columns
+  await db
+    .update(providersTable)
+    .set({ isVerified: true })
+    .where(inArray(providersTable.id, ["store1", "store2", "sp1", "sp2", "sp5"]));
+
+  await db
+    .update(ordersTable)
+    .set({
+      status: "delivered",
+      total: "710",
+      deliveryFee: "100",
+      discount: "100",
+      couponCode: "WELCOME10",
+      statusHistory: [
+        { status: "pending", at: "2026-10-18T10:00:00.000Z" },
+        { status: "confirmed", at: "2026-10-18T10:05:00.000Z" },
+        { status: "processing", at: "2026-10-18T10:20:00.000Z" },
+        { status: "shipped", at: "2026-10-18T10:45:00.000Z" },
+        { status: "delivered", at: "2026-10-18T11:10:00.000Z" },
+      ] as unknown as object[],
+    })
+    .where(eq(ordersTable.id, "order1"));
+
+  await db
+    .update(ordersTable)
+    .set({
+      status: "shipped",
+      deliveryFee: "100",
+      statusHistory: [
+        { status: "pending", at: "2026-10-21T13:00:00.000Z" },
+        { status: "confirmed", at: "2026-10-21T13:03:00.000Z" },
+        { status: "processing", at: "2026-10-21T13:25:00.000Z" },
+        { status: "shipped", at: "2026-10-21T13:50:00.000Z" },
+      ] as unknown as object[],
+    })
+    .where(eq(ordersTable.id, "order2"));
 
   console.log("Seed complete.");
 }

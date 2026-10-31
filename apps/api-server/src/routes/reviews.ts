@@ -9,6 +9,7 @@ function mapReview(r: any) {
   return {
     id: r.id,
     providerId: r.providerId,
+    serviceId: r.serviceId ?? null,
     customerId: r.customerId,
     customerName: r.customerName ?? null,
     customerAvatarUrl: r.customerAvatarUrl ?? null,
@@ -18,6 +19,22 @@ function mapReview(r: any) {
     createdAt: r.createdAt.toISOString(),
   };
 }
+
+// GET /api/services/{serviceId}/reviews
+router.get("/services/:serviceId/reviews", async (req: Request, res: Response) => {
+  const { serviceId } = req.params as Record<string, string>;
+  try {
+    const rows = await db
+      .select()
+      .from(reviewsTable)
+      .where(eq(reviewsTable.serviceId, serviceId))
+      .orderBy(reviewsTable.createdAt);
+    res.json(rows.map(mapReview).reverse());
+  } catch (err) {
+    req.log.error({ err }, "GET /services/:id/reviews error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // GET /api/providers/:providerId/reviews
 router.get("/providers/:providerId/reviews", async (req: Request, res: Response) => {
@@ -39,13 +56,14 @@ router.get("/providers/:providerId/reviews", async (req: Request, res: Response)
 router.post("/providers/:providerId/reviews", requireAuth, async (req: Request, res: Response) => {
   const clerkUserId = (req as any).clerkUserId as string;
   const { providerId } = req.params as Record<string, string>;
-  const { rating, comment } = req.body as { rating: number; comment?: string };
+  const { rating, comment, serviceId } = req.body as { rating: number; comment?: string; serviceId?: string };
 
   try {
     const [review] = await db
       .insert(reviewsTable)
       .values({
         providerId,
+        serviceId: serviceId ?? null,
         customerId: clerkUserId,
         customerName: null,
         rating,

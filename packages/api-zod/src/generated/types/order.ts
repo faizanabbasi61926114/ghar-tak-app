@@ -8,6 +8,7 @@
 import type { OrderItem } from './orderItem';
 import type { OrderPaymentMethod } from './orderPaymentMethod';
 import type { OrderStatus } from './orderStatus';
+import type { StatusHistoryEvent } from './statusHistoryEvent';
 
 export interface Order {
   id: string;
@@ -24,6 +25,11 @@ export interface Order {
   /** @nullable */
   notes?: string | null;
   items: OrderItem[];
+  deliveryFee: number;
+  discount: number;
+  /** @nullable */
+  couponCode?: string | null;
+  statusHistory: StatusHistoryEvent[];
   createdAt: Date;
   updatedAt?: Date;
 }

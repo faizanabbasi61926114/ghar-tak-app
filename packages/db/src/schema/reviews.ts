@@ -8,6 +8,7 @@ export const reviewsTable = pgTable(
   {
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
     providerId: varchar("provider_id").notNull(),
+    serviceId: varchar("service_id"),
     customerId: varchar("customer_id").notNull(),
     customerName: varchar("customer_name", { length: 255 }),
     customerAvatarUrl: text("customer_avatar_url"),

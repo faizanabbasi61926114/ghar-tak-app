@@ -93,6 +93,7 @@ export interface Provider {
   planId?: string | null;
   /** @nullable */
   category?: string | null;
+  isVerified?: boolean;
   createdAt: string;
 }
 
@@ -243,6 +244,11 @@ export const OrderPaymentMethod = {
   card: 'card',
 } as const;
 
+export interface StatusHistoryEvent {
+  status: string;
+  at: string;
+}
+
 export interface Order {
   id: string;
   customerId: string;
@@ -258,6 +264,11 @@ export interface Order {
   /** @nullable */
   notes?: string | null;
   items: OrderItem[];
+  deliveryFee: number;
+  discount: number;
+  /** @nullable */
+  couponCode?: string | null;
+  statusHistory: StatusHistoryEvent[];
   createdAt: string;
   updatedAt?: string;
 }
@@ -278,6 +289,8 @@ export interface CreateOrderRequest {
   paymentMethod: CreateOrderRequestPaymentMethod;
   deliveryAddress?: string;
   notes?: string;
+  deliveryFee?: number;
+  couponCode?: string;
 }
 
 export type UpdateOrderStatusRequestStatus = typeof UpdateOrderStatusRequestStatus[keyof typeof UpdateOrderStatusRequestStatus];
@@ -299,6 +312,8 @@ export interface UpdateOrderStatusRequest {
 export interface Review {
   id: string;
   providerId: string;
+  /** @nullable */
+  serviceId?: string | null;
   customerId: string;
   /** @nullable */
   customerName?: string | null;
@@ -323,6 +338,106 @@ export interface CreateReviewRequest {
      */
   rating: number;
   comment?: string;
+  serviceId?: string;
+}
+
+export interface Address {
+  id: string;
+  label: string;
+  line1: string;
+  city: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  instructions?: string | null;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export interface CreateAddressRequest {
+  label?: string;
+  line1: string;
+  city: string;
+  phone?: string;
+  instructions?: string;
+  isDefault?: boolean;
+}
+
+export interface UpdateAddressRequest {
+  label?: string;
+  line1?: string;
+  city?: string;
+  phone?: string;
+  instructions?: string;
+  isDefault?: boolean;
+}
+
+export interface ValidateCouponRequest {
+  code: string;
+  subtotal: number;
+}
+
+export interface CouponValidation {
+  valid: boolean;
+  reason?: string;
+  code?: string;
+  /** @nullable */
+  description?: string | null;
+  discount?: number;
+}
+
+export type BookingStatus = typeof BookingStatus[keyof typeof BookingStatus];
+
+
+export const BookingStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const;
+
+export interface Booking {
+  id: string;
+  customerId: string;
+  /** @nullable */
+  customerName?: string | null;
+  providerId: string;
+  providerName: string;
+  serviceId: string;
+  serviceName: string;
+  /** @nullable */
+  priceRange?: string | null;
+  bookingDate: string;
+  timeSlot: string;
+  address: string;
+  /** @nullable */
+  notes?: string | null;
+  status: BookingStatus;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateBookingRequest {
+  providerId: string;
+  serviceId: string;
+  bookingDate: string;
+  timeSlot: string;
+  address: string;
+  notes?: string;
+}
+
+export type UpdateBookingStatusRequestStatus = typeof UpdateBookingStatusRequestStatus[keyof typeof UpdateBookingStatusRequestStatus];
+
+
+export const UpdateBookingStatusRequestStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const;
+
+export interface UpdateBookingStatusRequest {
+  status: UpdateBookingStatusRequestStatus;
 }
 
 export type PlanInterval = typeof PlanInterval[keyof typeof PlanInterval];
@@ -458,6 +573,10 @@ export const ListProvidersType = {
 
 export type ListProviderProductsParams = {
 category?: string;
+};
+
+export type DeleteAddress200 = {
+  ok: boolean;
 };
 
 export type MarkConversationRead200 = {

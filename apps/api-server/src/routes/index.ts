@@ -11,6 +11,9 @@ import plansRouter from "./plans";
 import categoriesRouter from "./categories";
 import searchRouter from "./search";
 import messagesRouter from "./messages";
+import addressesRouter from "./addresses";
+import couponsRouter from "./coupons";
+import bookingsRouter from "./bookings";
 
 const router: IRouter = Router();
 
@@ -26,5 +29,8 @@ router.use(plansRouter);
 router.use(categoriesRouter);
 router.use(searchRouter);
 router.use(messagesRouter);
+router.use(addressesRouter);
+router.use(couponsRouter);
+router.use(bookingsRouter);
 
 export default router;

@@ -96,6 +96,7 @@ export const ListProvidersResponseItem = zod.object({
   "isFavorite": zod.boolean().optional(),
   "planId": zod.string().nullish(),
   "category": zod.string().nullish(),
+  "isVerified": zod.boolean().optional(),
   "createdAt": zod.coerce.date()
 })
 export const ListProvidersResponse = zod.array(ListProvidersResponseItem)
@@ -141,6 +142,7 @@ export const GetMyProviderResponse = zod.object({
   "isFavorite": zod.boolean().optional(),
   "planId": zod.string().nullish(),
   "category": zod.string().nullish(),
+  "isVerified": zod.boolean().optional(),
   "createdAt": zod.coerce.date()
 })
 
@@ -183,6 +185,7 @@ export const UpdateMyProviderResponse = zod.object({
   "isFavorite": zod.boolean().optional(),
   "planId": zod.string().nullish(),
   "category": zod.string().nullish(),
+  "isVerified": zod.boolean().optional(),
   "createdAt": zod.coerce.date()
 })
 
@@ -215,6 +218,7 @@ export const GetProviderResponse = zod.object({
   "isFavorite": zod.boolean().optional(),
   "planId": zod.string().nullish(),
   "category": zod.string().nullish(),
+  "isVerified": zod.boolean().optional(),
   "createdAt": zod.coerce.date()
 })
 
@@ -400,6 +404,13 @@ export const ListMyOrdersResponseItem = zod.object({
   "quantity": zod.number(),
   "unitPrice": zod.number()
 })),
+  "deliveryFee": zod.number(),
+  "discount": zod.number(),
+  "couponCode": zod.string().nullish(),
+  "statusHistory": zod.array(zod.object({
+  "status": zod.string(),
+  "at": zod.coerce.date()
+})),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -420,7 +431,9 @@ export const CreateOrderBody = zod.object({
 })),
   "paymentMethod": zod.enum(['cash_on_delivery', 'jazzcash', 'easypaisa', 'card']),
   "deliveryAddress": zod.string().optional(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "deliveryFee": zod.number().optional(),
+  "couponCode": zod.string().optional()
 })
 
 
@@ -448,6 +461,13 @@ export const GetOrderResponse = zod.object({
   "name": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number()
+})),
+  "deliveryFee": zod.number(),
+  "discount": zod.number(),
+  "couponCode": zod.string().nullish(),
+  "statusHistory": zod.array(zod.object({
+  "status": zod.string(),
+  "at": zod.coerce.date()
 })),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -483,6 +503,13 @@ export const UpdateOrderStatusResponse = zod.object({
   "quantity": zod.number(),
   "unitPrice": zod.number()
 })),
+  "deliveryFee": zod.number(),
+  "discount": zod.number(),
+  "couponCode": zod.string().nullish(),
+  "statusHistory": zod.array(zod.object({
+  "status": zod.string(),
+  "at": zod.coerce.date()
+})),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -509,10 +536,192 @@ export const ListProviderOrdersResponseItem = zod.object({
   "quantity": zod.number(),
   "unitPrice": zod.number()
 })),
+  "deliveryFee": zod.number(),
+  "discount": zod.number(),
+  "couponCode": zod.string().nullish(),
+  "statusHistory": zod.array(zod.object({
+  "status": zod.string(),
+  "at": zod.coerce.date()
+})),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
 export const ListProviderOrdersResponse = zod.array(ListProviderOrdersResponseItem)
+
+
+/**
+ * @summary List the authenticated user's saved delivery addresses
+ */
+export const ListAddressesResponseItem = zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "line1": zod.string(),
+  "city": zod.string(),
+  "phone": zod.string().nullish(),
+  "instructions": zod.string().nullish(),
+  "isDefault": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListAddressesResponse = zod.array(ListAddressesResponseItem)
+
+
+/**
+ * @summary Save a new delivery address
+ */
+export const CreateAddressBody = zod.object({
+  "label": zod.string().optional(),
+  "line1": zod.string(),
+  "city": zod.string(),
+  "phone": zod.string().optional(),
+  "instructions": zod.string().optional(),
+  "isDefault": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Update one of the authenticated user's addresses
+ */
+export const UpdateAddressParams = zod.object({
+  "addressId": zod.coerce.string()
+})
+
+export const UpdateAddressBody = zod.object({
+  "label": zod.string().optional(),
+  "line1": zod.string().optional(),
+  "city": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "instructions": zod.string().optional(),
+  "isDefault": zod.boolean().optional()
+})
+
+export const UpdateAddressResponse = zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "line1": zod.string(),
+  "city": zod.string(),
+  "phone": zod.string().nullish(),
+  "instructions": zod.string().nullish(),
+  "isDefault": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete one of the authenticated user's addresses
+ */
+export const DeleteAddressParams = zod.object({
+  "addressId": zod.coerce.string()
+})
+
+export const DeleteAddressResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Validate a coupon code against an order subtotal
+ */
+export const ValidateCouponBody = zod.object({
+  "code": zod.string(),
+  "subtotal": zod.number()
+})
+
+export const ValidateCouponResponse = zod.object({
+  "valid": zod.boolean(),
+  "reason": zod.string().optional(),
+  "code": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "discount": zod.number().optional()
+})
+
+
+/**
+ * @summary Book a service for a date and time slot (requires auth)
+ */
+export const CreateBookingBody = zod.object({
+  "providerId": zod.string(),
+  "serviceId": zod.string(),
+  "bookingDate": zod.coerce.date(),
+  "timeSlot": zod.string(),
+  "address": zod.string(),
+  "notes": zod.string().optional()
+})
+
+
+/**
+ * @summary List the authenticated user's service bookings
+ */
+export const ListMyBookingsResponseItem = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "customerName": zod.string().nullish(),
+  "providerId": zod.string(),
+  "providerName": zod.string(),
+  "serviceId": zod.string(),
+  "serviceName": zod.string(),
+  "priceRange": zod.string().nullish(),
+  "bookingDate": zod.coerce.date(),
+  "timeSlot": zod.string(),
+  "address": zod.string(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'cancelled']),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+export const ListMyBookingsResponse = zod.array(ListMyBookingsResponseItem)
+
+
+/**
+ * @summary List bookings received by the authenticated provider
+ */
+export const ListProviderBookingsResponseItem = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "customerName": zod.string().nullish(),
+  "providerId": zod.string(),
+  "providerName": zod.string(),
+  "serviceId": zod.string(),
+  "serviceName": zod.string(),
+  "priceRange": zod.string().nullish(),
+  "bookingDate": zod.coerce.date(),
+  "timeSlot": zod.string(),
+  "address": zod.string(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'cancelled']),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+export const ListProviderBookingsResponse = zod.array(ListProviderBookingsResponseItem)
+
+
+/**
+ * @summary Update booking status (provider confirms/completes; either party cancels)
+ */
+export const UpdateBookingStatusParams = zod.object({
+  "bookingId": zod.coerce.string()
+})
+
+export const UpdateBookingStatusBody = zod.object({
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'cancelled'])
+})
+
+export const UpdateBookingStatusResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "customerName": zod.string().nullish(),
+  "providerId": zod.string(),
+  "providerName": zod.string(),
+  "serviceId": zod.string(),
+  "serviceName": zod.string(),
+  "priceRange": zod.string().nullish(),
+  "bookingDate": zod.coerce.date(),
+  "timeSlot": zod.string(),
+  "address": zod.string(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'cancelled']),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
 
 
 /**
@@ -529,6 +738,7 @@ export const listProviderReviewsResponseRatingMax = 5;
 export const ListProviderReviewsResponseItem = zod.object({
   "id": zod.string(),
   "providerId": zod.string(),
+  "serviceId": zod.string().nullish(),
   "customerId": zod.string(),
   "customerName": zod.string().nullish(),
   "customerAvatarUrl": zod.string().nullish(),
@@ -553,8 +763,35 @@ export const createReviewBodyRatingMax = 5;
 
 export const CreateReviewBody = zod.object({
   "rating": zod.number().min(1).max(createReviewBodyRatingMax),
-  "comment": zod.string().optional()
+  "comment": zod.string().optional(),
+  "serviceId": zod.string().optional()
 })
+
+
+/**
+ * @summary List reviews for a specific service
+ */
+export const ListServiceReviewsParams = zod.object({
+  "serviceId": zod.coerce.string()
+})
+
+export const listServiceReviewsResponseRatingMax = 5;
+
+
+
+export const ListServiceReviewsResponseItem = zod.object({
+  "id": zod.string(),
+  "providerId": zod.string(),
+  "serviceId": zod.string().nullish(),
+  "customerId": zod.string(),
+  "customerName": zod.string().nullish(),
+  "customerAvatarUrl": zod.string().nullish(),
+  "rating": zod.number().min(1).max(listServiceReviewsResponseRatingMax),
+  "comment": zod.string().nullish(),
+  "reply": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListServiceReviewsResponse = zod.array(ListServiceReviewsResponseItem)
 
 
 /**
@@ -737,6 +974,7 @@ export const SearchResponse = zod.object({
   "isFavorite": zod.boolean().optional(),
   "planId": zod.string().nullish(),
   "category": zod.string().nullish(),
+  "isVerified": zod.boolean().optional(),
   "createdAt": zod.coerce.date()
 })),
   "products": zod.array(zod.object({

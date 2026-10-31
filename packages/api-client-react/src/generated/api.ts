@@ -20,14 +20,20 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  Address,
+  Booking,
   Category,
   ChatMessage,
   ConversationListItem,
+  CouponValidation,
+  CreateAddressRequest,
+  CreateBookingRequest,
   CreateOrderRequest,
   CreateProductRequest,
   CreateProviderRequest,
   CreateReviewRequest,
   CreateServiceRequest,
+  DeleteAddress200,
   ErrorEnvelope,
   HealthStatus,
   ListProviderProductsParams,
@@ -48,12 +54,15 @@ import type {
   SubscribeRequest,
   Subscription,
   UnauthorizedResponse,
+  UpdateAddressRequest,
+  UpdateBookingStatusRequest,
   UpdateOrderStatusRequest,
   UpdateProductRequest,
   UpdateProviderRequest,
   UpdateServiceRequest,
   UpdateUserProfileRequest,
-  UserProfile
+  UserProfile,
+  ValidateCouponRequest
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1718,6 +1727,664 @@ export function useListProviderOrders<TData = Awaited<ReturnType<typeof listProv
 
 
 
+export const getListAddressesUrl = () => {
+
+
+
+
+  return `/api/addresses`
+}
+
+/**
+ * @summary List the authenticated user's saved delivery addresses
+ */
+export const listAddresses = async ( options?: RequestInit): Promise<Address[]> => {
+
+  return customFetch<Address[]>(getListAddressesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAddressesQueryKey = () => {
+    return [
+    `/api/addresses`
+    ] as const;
+    }
+
+
+export const getListAddressesQueryOptions = <TData = Awaited<ReturnType<typeof listAddresses>>, TError = ErrorType<UnauthorizedResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAddresses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAddressesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAddresses>>> = ({ signal }) => listAddresses({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAddresses>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAddressesQueryResult = NonNullable<Awaited<ReturnType<typeof listAddresses>>>
+export type ListAddressesQueryError = ErrorType<UnauthorizedResponse>
+
+
+/**
+ * @summary List the authenticated user's saved delivery addresses
+ */
+
+export function useListAddresses<TData = Awaited<ReturnType<typeof listAddresses>>, TError = ErrorType<UnauthorizedResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAddresses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAddressesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateAddressUrl = () => {
+
+
+
+
+  return `/api/addresses`
+}
+
+/**
+ * @summary Save a new delivery address
+ */
+export const createAddress = async (createAddressRequest: CreateAddressRequest, options?: RequestInit): Promise<Address> => {
+
+  return customFetch<Address>(getCreateAddressUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createAddressRequest,)
+  }
+);}
+
+
+
+
+export const getCreateAddressMutationOptions = <TError = ErrorType<ErrorEnvelope | UnauthorizedResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAddress>>, TError,{data: BodyType<CreateAddressRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAddress>>, TError,{data: BodyType<CreateAddressRequest>}, TContext> => {
+
+const mutationKey = ['createAddress'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAddress>>, {data: BodyType<CreateAddressRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAddress(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAddressMutationResult = NonNullable<Awaited<ReturnType<typeof createAddress>>>
+    export type CreateAddressMutationBody = BodyType<CreateAddressRequest>
+    export type CreateAddressMutationError = ErrorType<ErrorEnvelope | UnauthorizedResponse>
+
+    /**
+ * @summary Save a new delivery address
+ */
+export const useCreateAddress = <TError = ErrorType<ErrorEnvelope | UnauthorizedResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAddress>>, TError,{data: BodyType<CreateAddressRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAddress>>,
+        TError,
+        {data: BodyType<CreateAddressRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateAddressMutationOptions(options));
+    }
+
+export const getUpdateAddressUrl = (addressId: string,) => {
+
+
+
+
+  return `/api/addresses/${addressId}`
+}
+
+/**
+ * @summary Update one of the authenticated user's addresses
+ */
+export const updateAddress = async (addressId: string,
+    updateAddressRequest: UpdateAddressRequest, options?: RequestInit): Promise<Address> => {
+
+  return customFetch<Address>(getUpdateAddressUrl(addressId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateAddressRequest,)
+  }
+);}
+
+
+
+
+export const getUpdateAddressMutationOptions = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAddress>>, TError,{addressId: string;data: BodyType<UpdateAddressRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAddress>>, TError,{addressId: string;data: BodyType<UpdateAddressRequest>}, TContext> => {
+
+const mutationKey = ['updateAddress'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAddress>>, {addressId: string;data: BodyType<UpdateAddressRequest>}> = (props) => {
+          const {addressId,data} = props ?? {};
+
+          return  updateAddress(addressId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAddressMutationResult = NonNullable<Awaited<ReturnType<typeof updateAddress>>>
+    export type UpdateAddressMutationBody = BodyType<UpdateAddressRequest>
+    export type UpdateAddressMutationError = ErrorType<UnauthorizedResponse | NotFoundResponse>
+
+    /**
+ * @summary Update one of the authenticated user's addresses
+ */
+export const useUpdateAddress = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAddress>>, TError,{addressId: string;data: BodyType<UpdateAddressRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAddress>>,
+        TError,
+        {addressId: string;data: BodyType<UpdateAddressRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateAddressMutationOptions(options));
+    }
+
+export const getDeleteAddressUrl = (addressId: string,) => {
+
+
+
+
+  return `/api/addresses/${addressId}`
+}
+
+/**
+ * @summary Delete one of the authenticated user's addresses
+ */
+export const deleteAddress = async (addressId: string, options?: RequestInit): Promise<DeleteAddress200> => {
+
+  return customFetch<DeleteAddress200>(getDeleteAddressUrl(addressId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteAddressMutationOptions = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAddress>>, TError,{addressId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAddress>>, TError,{addressId: string}, TContext> => {
+
+const mutationKey = ['deleteAddress'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAddress>>, {addressId: string}> = (props) => {
+          const {addressId} = props ?? {};
+
+          return  deleteAddress(addressId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAddressMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAddress>>>
+
+    export type DeleteAddressMutationError = ErrorType<UnauthorizedResponse | NotFoundResponse>
+
+    /**
+ * @summary Delete one of the authenticated user's addresses
+ */
+export const useDeleteAddress = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAddress>>, TError,{addressId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAddress>>,
+        TError,
+        {addressId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteAddressMutationOptions(options));
+    }
+
+export const getValidateCouponUrl = () => {
+
+
+
+
+  return `/api/coupons/validate`
+}
+
+/**
+ * @summary Validate a coupon code against an order subtotal
+ */
+export const validateCoupon = async (validateCouponRequest: ValidateCouponRequest, options?: RequestInit): Promise<CouponValidation> => {
+
+  return customFetch<CouponValidation>(getValidateCouponUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      validateCouponRequest,)
+  }
+);}
+
+
+
+
+export const getValidateCouponMutationOptions = <TError = ErrorType<UnauthorizedResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateCoupon>>, TError,{data: BodyType<ValidateCouponRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateCoupon>>, TError,{data: BodyType<ValidateCouponRequest>}, TContext> => {
+
+const mutationKey = ['validateCoupon'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateCoupon>>, {data: BodyType<ValidateCouponRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  validateCoupon(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateCouponMutationResult = NonNullable<Awaited<ReturnType<typeof validateCoupon>>>
+    export type ValidateCouponMutationBody = BodyType<ValidateCouponRequest>
+    export type ValidateCouponMutationError = ErrorType<UnauthorizedResponse>
+
+    /**
+ * @summary Validate a coupon code against an order subtotal
+ */
+export const useValidateCoupon = <TError = ErrorType<UnauthorizedResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateCoupon>>, TError,{data: BodyType<ValidateCouponRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof validateCoupon>>,
+        TError,
+        {data: BodyType<ValidateCouponRequest>},
+        TContext
+      > => {
+      return useMutation(getValidateCouponMutationOptions(options));
+    }
+
+export const getCreateBookingUrl = () => {
+
+
+
+
+  return `/api/bookings`
+}
+
+/**
+ * @summary Book a service for a date and time slot (requires auth)
+ */
+export const createBooking = async (createBookingRequest: CreateBookingRequest, options?: RequestInit): Promise<Booking> => {
+
+  return customFetch<Booking>(getCreateBookingUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createBookingRequest,)
+  }
+);}
+
+
+
+
+export const getCreateBookingMutationOptions = <TError = ErrorType<ErrorEnvelope | UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBooking>>, TError,{data: BodyType<CreateBookingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBooking>>, TError,{data: BodyType<CreateBookingRequest>}, TContext> => {
+
+const mutationKey = ['createBooking'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBooking>>, {data: BodyType<CreateBookingRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createBooking(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBookingMutationResult = NonNullable<Awaited<ReturnType<typeof createBooking>>>
+    export type CreateBookingMutationBody = BodyType<CreateBookingRequest>
+    export type CreateBookingMutationError = ErrorType<ErrorEnvelope | UnauthorizedResponse | NotFoundResponse>
+
+    /**
+ * @summary Book a service for a date and time slot (requires auth)
+ */
+export const useCreateBooking = <TError = ErrorType<ErrorEnvelope | UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBooking>>, TError,{data: BodyType<CreateBookingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBooking>>,
+        TError,
+        {data: BodyType<CreateBookingRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateBookingMutationOptions(options));
+    }
+
+export const getListMyBookingsUrl = () => {
+
+
+
+
+  return `/api/my-bookings`
+}
+
+/**
+ * @summary List the authenticated user's service bookings
+ */
+export const listMyBookings = async ( options?: RequestInit): Promise<Booking[]> => {
+
+  return customFetch<Booking[]>(getListMyBookingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMyBookingsQueryKey = () => {
+    return [
+    `/api/my-bookings`
+    ] as const;
+    }
+
+
+export const getListMyBookingsQueryOptions = <TData = Awaited<ReturnType<typeof listMyBookings>>, TError = ErrorType<UnauthorizedResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyBookings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMyBookingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyBookings>>> = ({ signal }) => listMyBookings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMyBookings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMyBookingsQueryResult = NonNullable<Awaited<ReturnType<typeof listMyBookings>>>
+export type ListMyBookingsQueryError = ErrorType<UnauthorizedResponse>
+
+
+/**
+ * @summary List the authenticated user's service bookings
+ */
+
+export function useListMyBookings<TData = Awaited<ReturnType<typeof listMyBookings>>, TError = ErrorType<UnauthorizedResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyBookings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMyBookingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListProviderBookingsUrl = () => {
+
+
+
+
+  return `/api/provider-bookings`
+}
+
+/**
+ * @summary List bookings received by the authenticated provider
+ */
+export const listProviderBookings = async ( options?: RequestInit): Promise<Booking[]> => {
+
+  return customFetch<Booking[]>(getListProviderBookingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProviderBookingsQueryKey = () => {
+    return [
+    `/api/provider-bookings`
+    ] as const;
+    }
+
+
+export const getListProviderBookingsQueryOptions = <TData = Awaited<ReturnType<typeof listProviderBookings>>, TError = ErrorType<UnauthorizedResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProviderBookings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProviderBookingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProviderBookings>>> = ({ signal }) => listProviderBookings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProviderBookings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProviderBookingsQueryResult = NonNullable<Awaited<ReturnType<typeof listProviderBookings>>>
+export type ListProviderBookingsQueryError = ErrorType<UnauthorizedResponse>
+
+
+/**
+ * @summary List bookings received by the authenticated provider
+ */
+
+export function useListProviderBookings<TData = Awaited<ReturnType<typeof listProviderBookings>>, TError = ErrorType<UnauthorizedResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProviderBookings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProviderBookingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateBookingStatusUrl = (bookingId: string,) => {
+
+
+
+
+  return `/api/bookings/${bookingId}`
+}
+
+/**
+ * @summary Update booking status (provider confirms/completes; either party cancels)
+ */
+export const updateBookingStatus = async (bookingId: string,
+    updateBookingStatusRequest: UpdateBookingStatusRequest, options?: RequestInit): Promise<Booking> => {
+
+  return customFetch<Booking>(getUpdateBookingStatusUrl(bookingId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateBookingStatusRequest,)
+  }
+);}
+
+
+
+
+export const getUpdateBookingStatusMutationOptions = <TError = ErrorType<ErrorEnvelope | UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBookingStatus>>, TError,{bookingId: string;data: BodyType<UpdateBookingStatusRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateBookingStatus>>, TError,{bookingId: string;data: BodyType<UpdateBookingStatusRequest>}, TContext> => {
+
+const mutationKey = ['updateBookingStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateBookingStatus>>, {bookingId: string;data: BodyType<UpdateBookingStatusRequest>}> = (props) => {
+          const {bookingId,data} = props ?? {};
+
+          return  updateBookingStatus(bookingId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateBookingStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateBookingStatus>>>
+    export type UpdateBookingStatusMutationBody = BodyType<UpdateBookingStatusRequest>
+    export type UpdateBookingStatusMutationError = ErrorType<ErrorEnvelope | UnauthorizedResponse | NotFoundResponse>
+
+    /**
+ * @summary Update booking status (provider confirms/completes; either party cancels)
+ */
+export const useUpdateBookingStatus = <TError = ErrorType<ErrorEnvelope | UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBookingStatus>>, TError,{bookingId: string;data: BodyType<UpdateBookingStatusRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateBookingStatus>>,
+        TError,
+        {bookingId: string;data: BodyType<UpdateBookingStatusRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateBookingStatusMutationOptions(options));
+    }
+
 export const getListProviderReviewsUrl = (providerId: string,) => {
 
 
@@ -1866,6 +2533,83 @@ export const useCreateReview = <TError = ErrorType<UnauthorizedResponse>,
       > => {
       return useMutation(getCreateReviewMutationOptions(options));
     }
+
+export const getListServiceReviewsUrl = (serviceId: string,) => {
+
+
+
+
+  return `/api/services/${serviceId}/reviews`
+}
+
+/**
+ * @summary List reviews for a specific service
+ */
+export const listServiceReviews = async (serviceId: string, options?: RequestInit): Promise<Review[]> => {
+
+  return customFetch<Review[]>(getListServiceReviewsUrl(serviceId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListServiceReviewsQueryKey = (serviceId: string,) => {
+    return [
+    `/api/services/${serviceId}/reviews`
+    ] as const;
+    }
+
+
+export const getListServiceReviewsQueryOptions = <TData = Awaited<ReturnType<typeof listServiceReviews>>, TError = ErrorType<unknown>>(serviceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceReviews>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListServiceReviewsQueryKey(serviceId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listServiceReviews>>> = ({ signal }) => listServiceReviews(serviceId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(serviceId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listServiceReviews>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListServiceReviewsQueryResult = NonNullable<Awaited<ReturnType<typeof listServiceReviews>>>
+export type ListServiceReviewsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List reviews for a specific service
+ */
+
+export function useListServiceReviews<TData = Awaited<ReturnType<typeof listServiceReviews>>, TError = ErrorType<unknown>>(
+ serviceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceReviews>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListServiceReviewsQueryOptions(serviceId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getSendProviderMessageUrl = (providerId: string,) => {
 

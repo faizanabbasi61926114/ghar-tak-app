@@ -8,3 +8,6 @@ export * from "./subscriptions";
 export * from "./contact-messages";
 export * from "./conversations";
 export * from "./messages";
+export * from "./addresses";
+export * from "./coupons";
+export * from "./bookings";

@@ -6,11 +6,17 @@
  * OpenAPI spec version: 0.2.0
  */
 
+export * from './address';
+export * from './booking';
+export * from './bookingStatus';
 export * from './category';
 export * from './categoryType';
 export * from './chatMessage';
 export * from './conversation';
 export * from './conversationListItem';
+export * from './couponValidation';
+export * from './createAddressRequest';
+export * from './createBookingRequest';
 export * from './createOrderRequest';
 export * from './createOrderRequestPaymentMethod';
 export * from './createProductRequest';
@@ -18,6 +24,7 @@ export * from './createProviderRequest';
 export * from './createProviderRequestType';
 export * from './createReviewRequest';
 export * from './createServiceRequest';
+export * from './deleteAddress200';
 export * from './errorEnvelope';
 export * from './healthStatus';
 export * from './listProviderProductsParams';
@@ -42,10 +49,14 @@ export * from './searchType';
 export * from './sendChatMessageRequest';
 export * from './sendMessageResponse';
 export * from './service';
+export * from './statusHistoryEvent';
 export * from './subscribeRequest';
 export * from './subscription';
 export * from './subscriptionStatus';
 export * from './unauthorizedResponse';
+export * from './updateAddressRequest';
+export * from './updateBookingStatusRequest';
+export * from './updateBookingStatusRequestStatus';
 export * from './updateOrderStatusRequest';
 export * from './updateOrderStatusRequestStatus';
 export * from './updateProductRequest';
@@ -53,3 +64,4 @@ export * from './updateProviderRequest';
 export * from './updateServiceRequest';
 export * from './updateUserProfileRequest';
 export * from './userProfile';
+export * from './validateCouponRequest';

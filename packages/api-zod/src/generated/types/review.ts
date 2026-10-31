@@ -9,6 +9,8 @@
 export interface Review {
   id: string;
   providerId: string;
+  /** @nullable */
+  serviceId?: string | null;
   customerId: string;
   /** @nullable */
   customerName?: string | null;
