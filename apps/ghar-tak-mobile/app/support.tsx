@@ -5,6 +5,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 const FAQS = [
   { q: "How do I place an order?", a: "Browse stores on the Stores tab, tap a store, then select products and tap 'Browse & Order'." },
@@ -20,7 +21,7 @@ export default function SupportScreen() {
   const isWeb = Platform.OS === "web";
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: "row",
@@ -77,7 +78,7 @@ export default function SupportScreen() {
     },
     helpLabel: { fontSize: 13, color: colors.foreground, fontFamily: "Inter_500Medium", textAlign: "center" as const },
     footer: { height: isWeb ? 34 : insets.bottom + 20 },
-  });
+  }));
 
   return (
     <View style={styles.container}>

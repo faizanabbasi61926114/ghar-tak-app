@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 
@@ -52,7 +53,7 @@ export default function ContactScreen() {
     }
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: "row",
@@ -102,7 +103,7 @@ export default function ContactScreen() {
       borderRadius: 12, borderWidth: 1, borderColor: colors.border,
     },
     anotherBtnText: { fontSize: 14, color: colors.foreground, fontFamily: "Inter_500Medium" },
-  });
+  }));
 
   return (
     <View style={styles.container}>

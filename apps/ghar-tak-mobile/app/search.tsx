@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FlatList,
   Platform,
@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 import { useData } from "@/context/DataContext";
 
 interface Result {
@@ -29,15 +30,12 @@ export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const [query, setQuery] = useState(q ?? "");
-  const [results, setResults] = useState<Result[]>([]);
   const { stores, serviceProviders } = useData();
 
-  useEffect(() => {
+  const results = useMemo<Result[]>(() => {
     const term = query.toLowerCase().trim();
-    if (!term) {
-      setResults([]);
-      return;
-    }
+    if (!term) return [];
+
     const storeResults: Result[] = stores
       .filter(
         (s) =>
@@ -68,8 +66,8 @@ export default function SearchScreen() {
         icon: "user",
       }));
 
-    setResults([...storeResults, ...providerResults]);
-  }, [query]);
+    return [...storeResults, ...providerResults];
+  }, [query, stores, serviceProviders]);
 
   const handlePress = (item: Result) => {
     if (item.type === "store") {
@@ -79,7 +77,7 @@ export default function SearchScreen() {
     }
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       paddingTop: isWeb ? 67 : insets.top + 12,
@@ -146,7 +144,7 @@ export default function SearchScreen() {
     emptyTitle: { fontSize: 16, color: colors.mutedForeground, fontFamily: "Inter_500Medium", marginTop: 16 },
     emptySubtitle: { fontSize: 13, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 6, textAlign: "center" as const },
     footer: { height: isWeb ? 34 : insets.bottom + 20 },
-  });
+  }));
 
   return (
     <View style={styles.container}>
@@ -185,6 +183,10 @@ export default function SearchScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           scrollEnabled={!!results.length}
+          keyboardShouldPersistTaps="handled"
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
           ListFooterComponent={<View style={styles.footer} />}
           renderItem={({ item }) => (
             <Pressable style={styles.item} onPress={() => handlePress(item)}>

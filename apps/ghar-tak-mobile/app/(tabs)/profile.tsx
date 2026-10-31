@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 function SignInForm() {
   const colors = useColors();
@@ -47,7 +48,7 @@ function SignInForm() {
     }
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: colors.background },
     logo: {
       width: 64,
@@ -102,7 +103,7 @@ function SignInForm() {
     toggle: { flexDirection: "row", justifyContent: "center", marginTop: 20, gap: 4 },
     toggleText: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
     toggleLink: { fontSize: 14, color: colors.primary, fontFamily: "Inter_600SemiBold" },
-  });
+  }));
 
   return (
     <View style={styles.container}>
@@ -163,33 +164,7 @@ export default function ProfileScreen() {
   const { user, signOut, loading, firebaseReady } = useAuth();
   const isWeb = Platform.OS === "web";
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (!firebaseReady && !user) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 32, backgroundColor: colors.background }}>
-        <Feather name="alert-circle" size={40} color={colors.mutedForeground} />
-        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, fontFamily: "Inter_700Bold", marginTop: 16, textAlign: "center" }}>
-          Firebase Not Configured
-        </Text>
-        <Text style={{ fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 8, textAlign: "center", lineHeight: 20 }}>
-          Set your EXPO_PUBLIC_FIREBASE_* environment variables to enable sign-in.
-        </Text>
-      </View>
-    );
-  }
-
-  if (!user) {
-    return <SignInForm />;
-  }
-
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       paddingTop: isWeb ? 67 : insets.top + 16,
@@ -248,7 +223,33 @@ export default function ProfileScreen() {
     },
     signOutText: { fontSize: 15, color: colors.destructive, fontFamily: "Inter_600SemiBold" },
     footer: { height: isWeb ? 34 : insets.bottom + 80 },
-  });
+  }));
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background }}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!firebaseReady && !user) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 32, backgroundColor: colors.background }}>
+        <Feather name="alert-circle" size={40} color={colors.mutedForeground} />
+        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, fontFamily: "Inter_700Bold", marginTop: 16, textAlign: "center" }}>
+          Firebase Not Configured
+        </Text>
+        <Text style={{ fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 8, textAlign: "center", lineHeight: 20 }}>
+          Set your EXPO_PUBLIC_FIREBASE_* environment variables to enable sign-in.
+        </Text>
+      </View>
+    );
+  }
+
+  if (!user) {
+    return <SignInForm />;
+  }
 
   const accountItems: MenuItem[] = [
     { icon: "shopping-bag", label: "My Orders", route: "/orders" },

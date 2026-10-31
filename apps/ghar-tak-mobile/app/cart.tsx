@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCart } from "@/context/CartContext";
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 export default function CartScreen() {
   const colors = useColors();
@@ -21,7 +22,7 @@ export default function CartScreen() {
   const isWeb = Platform.OS === "web";
   const { items, removeItem, updateQuantity, totalItems, totalPrice } = useCart();
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: "row",
@@ -112,7 +113,7 @@ export default function CartScreen() {
       alignItems: "center",
     },
     checkoutBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
-  });
+  }));
 
   return (
     <View style={styles.container}>

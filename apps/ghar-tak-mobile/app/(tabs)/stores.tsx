@@ -1,11 +1,12 @@
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   FlatList,
-  Image,
   Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -14,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 import { useData } from "@/context/DataContext";
 import { useFavorites } from "@/hooks/useFavorites";
 
@@ -22,7 +24,7 @@ export default function StoresScreen() {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
   const isWeb = Platform.OS === "web";
-  const { stores } = useData();
+  const { stores, refreshing, refresh } = useData();
   const { favouriteIds, toggleFavourite } = useFavorites();
 
   const filtered = query.trim()
@@ -33,7 +35,7 @@ export default function StoresScreen() {
       )
     : stores;
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       paddingTop: isWeb ? 67 : insets.top + 16,
@@ -171,7 +173,7 @@ export default function StoresScreen() {
     empty: { alignItems: "center", paddingTop: 60 },
     emptyText: { fontSize: 16, color: colors.mutedForeground, fontFamily: "Inter_500Medium", marginTop: 12 },
     footer: { height: isWeb ? 34 : insets.bottom + 80 },
-  });
+  }));
 
   return (
     <View style={styles.container}>
@@ -200,7 +202,14 @@ export default function StoresScreen() {
           <Pressable style={styles.cameraBtn} onPress={() => router.push("/image-analyzer")}>
             <Feather name="camera" size={17} color={colors.mutedForeground} />
           </Pressable>
-          <Pressable style={styles.searchBtn} onPress={() => {}}>
+          <Pressable
+            style={styles.searchBtn}
+            onPress={() => {
+              if (query.trim()) {
+                router.push({ pathname: "/search", params: { q: query.trim() } });
+              }
+            }}
+          >
             <Feather name="search" size={14} color="#fff" />
             <Text style={styles.searchBtnText}>Search</Text>
           </Pressable>
@@ -211,6 +220,19 @@ export default function StoresScreen() {
         data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={6}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === "android"}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Feather name="shopping-bag" size={40} color={colors.mutedForeground} />
@@ -225,7 +247,14 @@ export default function StoresScreen() {
               style={styles.card}
               onPress={() => router.push({ pathname: "/store/[id]", params: { id: item.id } })}
             >
-              <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" />
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={styles.image}
+                contentFit="cover"
+                transition={150}
+                cachePolicy="memory-disk"
+                recyclingKey={item.id}
+              />
               <View style={styles.info}>
                 <View style={styles.nameRow}>
                   <Text style={styles.name} numberOfLines={1}>{item.name}</Text>

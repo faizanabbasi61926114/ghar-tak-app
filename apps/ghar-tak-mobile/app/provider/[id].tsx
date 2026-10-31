@@ -1,11 +1,11 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 import { useData } from "@/context/DataContext";
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
@@ -71,7 +72,7 @@ export default function ProviderDetailScreen() {
     }
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     imageWrap: { position: "relative" as const },
     heroImage: { width: "100%" as const, height: 220 },
@@ -151,7 +152,7 @@ export default function ProviderDetailScreen() {
     closeBtnText: { fontSize: 14, color: colors.foreground, fontFamily: "Inter_500Medium" },
     errorBox: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40, gap: 16 },
     errorText: { fontSize: 18, fontWeight: "600" as const, color: colors.foreground, fontFamily: "Inter_600SemiBold" },
-  });
+  }));
 
   if (!provider) {
     return (
@@ -169,7 +170,13 @@ export default function ProviderDetailScreen() {
     <>
       <ScrollView style={styles.container}>
         <View style={styles.imageWrap}>
-          <Image source={{ uri: provider.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+          <Image
+            source={{ uri: provider.imageUrl }}
+            style={styles.heroImage}
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
+          />
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
             <Feather name="arrow-left" size={20} color="#fff" />
           </Pressable>

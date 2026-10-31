@@ -1,4 +1,18 @@
+import { Platform } from "react-native";
+
 const getBaseUrl = () => {
+  const explicit = process.env.EXPO_PUBLIC_API_URL;
+  if (explicit) return explicit.replace(/\/+$/, "");
+
+  // The Expo dev server on 8081 does not proxy /api; the API runs on 8000.
+  if (
+    Platform.OS === "web" &&
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+  ) {
+    return `http://${window.location.hostname}:8000`;
+  }
+
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   if (domain) return `https://${domain}`;
   return "";

@@ -5,6 +5,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 import { useData } from "@/context/DataContext";
 
 export default function FavoritesScreen() {
@@ -14,7 +15,7 @@ export default function FavoritesScreen() {
   const { stores } = useData();
   const favorites = stores.filter((s) => s.isFavorite);
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: "row",
@@ -62,7 +63,7 @@ export default function FavoritesScreen() {
     emptyText: { fontSize: 16, color: colors.mutedForeground, fontFamily: "Inter_500Medium", marginTop: 12 },
     emptySubtext: { fontSize: 13, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 6, textAlign: "center" as const },
     footer: { height: isWeb ? 34 : insets.bottom + 20 },
-  });
+  }));
 
   return (
     <View style={styles.container}>

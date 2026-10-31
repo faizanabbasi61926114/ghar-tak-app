@@ -1,9 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCart } from "@/context/CartContext";
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 import type { Product } from "@/lib/data";
 import { useData } from "@/context/DataContext";
 
@@ -30,10 +31,13 @@ export default function StoreDetailScreen() {
   const store = stores.find((s) => s.id === id);
   const products = allProducts.filter((p) => p.storeId === id);
 
-  const getItemQty = (productId: string) =>
-    items.find((i) => i.product.id === productId)?.quantity ?? 0;
+  const quantities = useMemo(
+    () => new Map(items.map((item) => [item.product.id, item.quantity])),
+    [items],
+  );
+  const getItemQty = (productId: string) => quantities.get(productId) ?? 0;
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     imageWrap: { position: "relative" as const },
     heroImage: { width: "100%" as const, height: 240 },
@@ -186,7 +190,7 @@ export default function StoreDetailScreen() {
     empty: { alignItems: "center", paddingVertical: 24 },
     emptyText: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 8 },
     footer: { height: isWeb ? 34 : insets.bottom + 20 },
-  });
+  }));
 
   if (!store) {
     return (
@@ -252,7 +256,13 @@ export default function StoreDetailScreen() {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.imageWrap}>
-        <Image source={{ uri: store.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+        <Image
+          source={{ uri: store.imageUrl }}
+          style={styles.heroImage}
+          contentFit="cover"
+          transition={200}
+          cachePolicy="memory-disk"
+        />
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Feather name="arrow-left" size={20} color="#fff" />
         </Pressable>

@@ -1,11 +1,11 @@
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  FlatList,
-  Image,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 import { useData } from "@/context/DataContext";
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -39,7 +40,7 @@ export default function HomeScreen() {
   const [query, setQuery] = useState("");
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
-  const { stores, serviceCategories } = useData();
+  const { stores, serviceCategories, refreshing, refresh } = useData();
 
   const handleSearch = () => {
     if (query.trim()) {
@@ -47,7 +48,7 @@ export default function HomeScreen() {
     }
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
     hero: {
@@ -285,11 +286,22 @@ export default function HomeScreen() {
     ctaOutlineBtnText: { color: colors.foreground, fontSize: 14, fontFamily: "Inter_600SemiBold" },
 
     bottomPad: { height: isWeb ? 34 : insets.bottom + 80 },
-  });
+  }));
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         {/* Hero — matches web's gradient hero section */}
         <View style={styles.hero}>
           <Text style={styles.heroTitle}>Welcome to Ghar Tak</Text>
@@ -328,18 +340,25 @@ export default function HomeScreen() {
               <Text style={styles.seeAll}>See all</Text>
             </Pressable>
           </View>
-          <FlatList
-            data={stores.slice(0, 4)}
+          <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            scrollEnabled
-            renderItem={({ item }) => (
+            keyboardShouldPersistTaps="handled"
+          >
+            {stores.slice(0, 4).map((item) => (
               <Pressable
+                key={item.id}
                 style={styles.storeCard}
                 onPress={() => router.push({ pathname: "/store/[id]", params: { id: item.id } })}
               >
-                <Image source={{ uri: item.imageUrl }} style={styles.storeImage} resizeMode="cover" />
+                <Image
+                  source={{ uri: item.imageUrl }}
+                  style={styles.storeImage}
+                  contentFit="cover"
+                  transition={150}
+                  cachePolicy="memory-disk"
+                  recyclingKey={item.id}
+                />
                 <View style={styles.storeInfo}>
                   <Text style={styles.storeName} numberOfLines={1}>{item.name}</Text>
                   <View style={styles.storeCatBadge}>
@@ -356,8 +375,8 @@ export default function HomeScreen() {
                   </View>
                 </View>
               </Pressable>
-            )}
-          />
+            ))}
+          </ScrollView>
         </View>
 
         {/* Services */}

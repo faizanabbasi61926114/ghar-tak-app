@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCart } from "@/context/CartContext";
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 export default function CheckoutScreen() {
   const colors = useColors();
@@ -34,7 +35,7 @@ export default function CheckoutScreen() {
     return null;
   }
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: "row",
@@ -132,7 +133,7 @@ export default function CheckoutScreen() {
     },
     paymentLabel: { fontSize: 14, color: colors.foreground, fontFamily: "Inter_400Regular" },
     paymentMuted: { fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 1 },
-  });
+  }));
 
   const handlePlaceOrder = async () => {
     if (!name.trim()) { Alert.alert("Missing info", "Please enter your name."); return; }

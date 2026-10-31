@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCart } from "@/context/CartContext";
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 const STATUS_COLORS: Record<string, string> = {
   placed: "#f59e0b",
@@ -37,7 +38,7 @@ export default function OrdersScreen() {
   const isWeb = Platform.OS === "web";
   const { orders } = useCart();
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: "row",
@@ -104,7 +105,7 @@ export default function OrdersScreen() {
     addressRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 8 },
     addressText: { flex: 1, fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular", lineHeight: 17 },
     footer: { height: isWeb ? 24 : insets.bottom + 80 },
-  });
+  }));
 
   return (
     <View style={styles.container}>

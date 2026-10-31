@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 import { describeImage } from "@/lib/api";
 
 export default function ImageAnalyzerScreen() {
@@ -63,7 +64,7 @@ export default function ImageAnalyzerScreen() {
     }
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: "row",
@@ -127,7 +128,7 @@ export default function ImageAnalyzerScreen() {
     searchBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
     errorText: { color: colors.destructive, fontSize: 14, fontFamily: "Inter_400Regular", marginTop: 16, textAlign: "center" as const },
     footer: { height: isWeb ? 34 : insets.bottom + 20 },
-  });
+  }));
 
   return (
     <View style={styles.container}>

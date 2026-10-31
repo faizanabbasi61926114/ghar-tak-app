@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { Product } from "@/lib/data";
 
@@ -126,14 +126,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return order;
   }, [items, orders, saveCart]);
 
-  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
-  const totalPrice = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
-
-  return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, totalPrice, orders, placeOrder }}>
-      {children}
-    </CartContext.Provider>
+  const totalItems = useMemo(() => items.reduce((sum, i) => sum + i.quantity, 0), [items]);
+  const totalPrice = useMemo(
+    () => items.reduce((sum, i) => sum + i.product.price * i.quantity, 0),
+    [items],
   );
+
+  const value = useMemo<CartContextValue>(
+    () => ({
+      items,
+      addItem,
+      removeItem,
+      updateQuantity,
+      clearCart,
+      totalItems,
+      totalPrice,
+      orders,
+      placeOrder,
+    }),
+    [items, addItem, removeItem, updateQuantity, clearCart, totalItems, totalPrice, orders, placeOrder],
+  );
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
 export function useCart() {

@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 import { useData } from "@/context/DataContext";
 
 export default function ServiceCategoryScreen() {
@@ -24,7 +25,7 @@ export default function ServiceCategoryScreen() {
   const cat = serviceCategories.find((c) => c.id === category);
   const providers = serviceProviders.filter((p) => p.serviceCategory === category);
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: "row",
@@ -96,7 +97,7 @@ export default function ServiceCategoryScreen() {
     empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 },
     emptyText: { fontSize: 16, color: colors.mutedForeground, fontFamily: "Inter_500Medium", marginTop: 12 },
     footer: { height: isWeb ? 34 : insets.bottom + 20 },
-  });
+  }));
 
   return (
     <View style={styles.container}>

@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 export default function SignUpScreen() {
   const colors = useColors();
@@ -57,7 +58,7 @@ export default function SignUpScreen() {
     }
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       paddingTop: isWeb ? 67 : insets.top + 12,
@@ -161,7 +162,7 @@ export default function SignUpScreen() {
     },
     guestBtnText: { fontSize: 15, color: colors.foreground, fontFamily: "Inter_600SemiBold" },
     footerPad: { height: 40 },
-  });
+  }));
 
   return (
     <View style={styles.container}>

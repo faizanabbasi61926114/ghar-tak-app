@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 function parseQRCode(data: string): { pathname: string; params?: Record<string, string> } | null {
   if (data.includes("store/")) {
@@ -42,7 +43,7 @@ function WebFallback({ colors, insets }: { colors: ReturnType<typeof useColors>;
     if (destination) router.push(destination as any);
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     header: {
       flexDirection: "row",
       alignItems: "center",
@@ -95,7 +96,7 @@ function WebFallback({ colors, insets }: { colors: ReturnType<typeof useColors>;
     },
     goBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
     footer: { height: 34 },
-  });
+  }));
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -163,7 +164,7 @@ export default function QRScannerScreen() {
     if (destination) router.push(destination as any);
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: "#000" },
     camera: { flex: 1 },
     overlay: {
@@ -255,7 +256,7 @@ export default function QRScannerScreen() {
       alignItems: "center",
     },
     permBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  });
+  }));
 
   if (!permission) {
     return (

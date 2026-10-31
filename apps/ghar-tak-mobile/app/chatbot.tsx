@@ -16,6 +16,7 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 import { getChatbotResponse } from "@/lib/api";
 
 interface Message {
@@ -69,7 +70,7 @@ export default function ChatbotScreen() {
     }
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: "row",
@@ -160,7 +161,7 @@ export default function ChatbotScreen() {
       justifyContent: "center",
     },
     sendBtnDisabled: { opacity: 0.5 },
-  });
+  }));
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior="padding" keyboardVerticalOffset={0}>

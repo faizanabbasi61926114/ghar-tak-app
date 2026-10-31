@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 const BENEFITS = [
   { icon: "users", text: "Reach thousands of local customers" },
@@ -42,7 +43,7 @@ export default function BecomeProviderScreen() {
     setBusinessName(""); setCategory(""); setPhone("");
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: "row",
@@ -92,7 +93,7 @@ export default function BecomeProviderScreen() {
     },
     applyBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
     footer: { height: isWeb ? 34 : insets.bottom + 20 },
-  });
+  }));
 
   return (
     <View style={styles.container}>

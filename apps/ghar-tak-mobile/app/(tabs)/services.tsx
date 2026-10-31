@@ -2,9 +2,10 @@ import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
 import {
-  FlatList,
   Platform,
   Pressable,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -12,15 +13,16 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 import { useData } from "@/context/DataContext";
 
 export default function ServicesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { serviceCategories, serviceProviders } = useData();
+  const { serviceCategories, serviceProviders, refreshing, refresh } = useData();
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       paddingTop: isWeb ? 67 : insets.top + 16,
@@ -129,7 +131,7 @@ export default function ServicesScreen() {
     metaMuted: { fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
 
     footer: { height: isWeb ? 34 : insets.bottom + 80 },
-  });
+  }));
 
   return (
     <View style={styles.container}>
@@ -143,11 +145,19 @@ export default function ServicesScreen() {
         <Text style={styles.subtitle}>Find local professionals</Text>
       </View>
 
-      <FlatList
-        data={[{ key: "content" }]}
-        keyExtractor={(item) => item.key}
-        renderItem={() => (
-          <View style={styles.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
+        <View style={styles.content}>
             {/* Categories grid — mirrors web's ServiceCategoriesSection */}
             <Text style={styles.sectionTitle}>Browse by Category</Text>
             <View style={styles.grid}>
@@ -198,9 +208,8 @@ export default function ServicesScreen() {
               ))}
             </View>
           </View>
-        )}
-        ListFooterComponent={<View style={styles.footer} />}
-      />
+        <View style={styles.footer} />
+      </ScrollView>
     </View>
   );
 }

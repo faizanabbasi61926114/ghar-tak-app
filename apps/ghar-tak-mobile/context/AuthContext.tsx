@@ -5,7 +5,7 @@ import {
   signOut as firebaseSignOut,
   type User as FirebaseUser,
 } from "firebase/auth";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { auth, hasFirebaseConfig } from "@/lib/firebase";
 
@@ -92,21 +92,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     if (!hasFirebaseConfig || !auth) {
       throw new Error("Firebase is not configured. Please set EXPO_PUBLIC_FIREBASE_* environment variables.");
     }
     await signInWithEmailAndPassword(auth, email, password);
-  };
+  }, []);
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     if (!hasFirebaseConfig || !auth) {
       throw new Error("Firebase is not configured. Please set EXPO_PUBLIC_FIREBASE_* environment variables.");
     }
     await createUserWithEmailAndPassword(auth, email, password);
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     if (user && 'isGuest' in user) {
       saveGuestUser(null);
       setUser(null);
@@ -114,32 +114,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     if (!hasFirebaseConfig || !auth) return;
     await firebaseSignOut(auth);
-  };
+  }, [user]);
 
-  const guestSignIn = () => {
+  const guestSignIn = useCallback(() => {
     const guest = createGuestUser();
     saveGuestUser(guest);
     setUser(guest);
-  };
+  }, []);
 
   const isGuest = user !== null && 'isGuest' in user;
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        firebaseReady: hasFirebaseConfig && auth !== null,
-        signIn,
-        signUp,
-        signOut,
-        guestSignIn,
-        isGuest,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      loading,
+      firebaseReady: hasFirebaseConfig && auth !== null,
+      signIn,
+      signUp,
+      signOut,
+      guestSignIn,
+      isGuest,
+    }),
+    [user, loading, signIn, signUp, signOut, guestSignIn, isGuest],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

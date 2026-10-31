@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 export default function OrderSuccessScreen() {
   const colors = useColors();
@@ -23,7 +24,7 @@ export default function OrderSuccessScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, []);
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
@@ -84,7 +85,7 @@ export default function OrderSuccessScreen() {
       borderColor: colors.border,
     },
     secondaryBtnText: { color: colors.foreground, fontSize: 16, fontFamily: "Inter_500Medium" },
-  });
+  }));
 
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 0 : insets.top }]}>

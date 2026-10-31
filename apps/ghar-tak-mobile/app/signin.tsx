@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 export default function SignInScreen() {
   const colors = useColors();
@@ -51,7 +52,7 @@ export default function SignInScreen() {
     }
   };
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       paddingTop: isWeb ? 67 : insets.top + 12,
@@ -145,7 +146,7 @@ export default function SignInScreen() {
       borderColor: colors.border,
     },
     guestBtnText: { fontSize: 15, color: colors.foreground, fontFamily: "Inter_600SemiBold" },
-  });
+  }));
 
   return (
     <View style={styles.container}>

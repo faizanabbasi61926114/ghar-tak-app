@@ -1,8 +1,8 @@
 import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useThemedStyles } from "@/hooks/useThemedStyles";
 
 interface Product {
   id: string;
@@ -179,7 +180,7 @@ export default function DashboardScreen() {
   const totalProducts = products.length;
   const avgRating = reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : "0";
 
-  const styles = StyleSheet.create({
+  const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
       flexDirection: "row",
@@ -505,7 +506,7 @@ export default function DashboardScreen() {
     },
 
     footer: { height: isWeb ? 34 : insets.bottom + 20 },
-  });
+  }));
 
   const handleAddProduct = () => {
     if (!productForm.name || !productForm.price) return;
@@ -634,12 +635,24 @@ export default function DashboardScreen() {
   const renderOverview = () => (
     <>
       <View style={styles.coverWrap}>
-        <Image source={{ uri: businessDetails.coverUrl }} style={styles.coverImage} resizeMode="cover" />
+        <Image
+          source={{ uri: businessDetails.coverUrl }}
+          style={styles.coverImage}
+          contentFit="cover"
+          transition={200}
+          cachePolicy="memory-disk"
+        />
         <View style={[styles.openBadge, { backgroundColor: businessDetails.isOpen ? "#22c55e" : "#ef4444" }]}>
           <Text style={styles.openBadgeText}>{businessDetails.isOpen ? "Open" : "Closed"}</Text>
         </View>
         <View style={styles.avatarWrap}>
-          <Image source={{ uri: businessDetails.avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+          <Image
+            source={{ uri: businessDetails.avatarUrl }}
+            style={styles.avatarImage}
+            contentFit="cover"
+            transition={150}
+            cachePolicy="memory-disk"
+          />
         </View>
       </View>
 
@@ -1056,7 +1069,14 @@ export default function DashboardScreen() {
       <View style={styles.galleryGrid}>
         {gallery.map((image) => (
           <Pressable key={image.id} style={styles.galleryItem} onPress={() => handleDeleteGalleryImage(image.id)}>
-            <Image source={{ uri: image.url }} style={styles.galleryImage} resizeMode="cover" />
+            <Image
+              source={{ uri: image.url }}
+              style={styles.galleryImage}
+              contentFit="cover"
+              transition={150}
+              cachePolicy="memory-disk"
+              recyclingKey={image.id}
+            />
             <View style={styles.galleryOverlay}>
               <Feather name="trash-2" size={18} color="#fff" />
             </View>
