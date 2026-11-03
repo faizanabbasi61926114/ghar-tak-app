@@ -56,9 +56,9 @@ catalog:
   framer-motion: ^12.23.24
   lucide-react: ^0.545.0
   # Must be this exact version because expo requires it
-  react: 19.1.0
+  react: 19.3.0
   # Must be this exact version because expo requires it
-  react-dom: 19.1.0
+  react-dom: 19.3.0
   tailwind-merge: ^3.3.1
   tailwindcss: ^4.1.14
   tsx: ^4.21.0
@@ -81,12 +81,13 @@ overrides:
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
   esbuild: "0.27.3"
 
-  # Single React copy across the whole workspace. Expo requires exactly 19.1.0
-  # (see catalog). Without this, pnpm resolves react to 19.2.8 somewhere in the
-  # shared store, and Metro's web bundle ends up with two React instances, which
-  # breaks hooks ("Cannot read properties of null (reading 'useState')").
-  react: 19.1.0
-  react-dom: 19.1.0
+  # Single React copy across the whole workspace. Expo requires exactly 19.3.0
+  # (see catalog). Without this, pnpm resolves react to another patch somewhere
+  # in the shared store, and Metro's web bundle ends up with two React
+  # instances, which breaks hooks ("Cannot read properties of null (reading
+  # 'useState')").
+  react: 19.3.0
+  react-dom: 19.3.0
 
   # Security overrides
   shell-quote: ">=1.8.4"

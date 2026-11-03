@@ -197,7 +197,7 @@ export default function ChatbotScreen() {
                 Thinking...
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
         ListFooterComponent={<View style={styles.messagePad} />}
         renderItem={({ item }) => (
