@@ -4,6 +4,8 @@ import type { Coords } from '@workspace/geo';
 export interface MapSurfaceHandle {
   moveTo: (point: Coords, zoom: number) => void;
   zoom: () => number;
+  /** How much ground the map shows along its shorter side, in km. */
+  viewKm: () => number;
 }
 
 /**

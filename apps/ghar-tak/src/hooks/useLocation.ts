@@ -1,102 +1,57 @@
 import { useEffect, useSyncExternalStore } from 'react';
-import { CITY_ACCURACY_M, type Coords } from '@workspace/geo';
-import type { Location } from '@/lib/types';
+import {
+  deviceReading,
+  isOutdated,
+  makeSavedLocation,
+  parseSavedLocation,
+  serializeSavedLocation,
+  type Coords,
+  type LocationSource,
+  type SavedLocation,
+  type SaveHow,
+} from '@workspace/geo';
+
+// The customer's location, one store for every component. The rules for what is saved and
+// how it is read back live in @workspace/geo, shared with the mobile app.
 
 const STORAGE_KEY = 'ghar-tak:user-location';
-
-/** Where the location came from: the device (GPS or Wi-Fi), or a spot the customer pinned on the map. */
-export type LocationSource = 'device' | 'chosen';
-
-interface Saved {
-  location: Location;
-  source: LocationSource;
-  /** How far off the location may be, in metres: as the browser reports it, or set for a picked city. */
-  accuracyM: number | null;
-  /** The city the customer picked, when they picked a city rather than a spot. */
-  place: string | null;
-  savedAt: number;
-}
 
 /** locating: the first device request is still open. ready: a location is known. failed: none is known. */
 type LocationStatus = 'locating' | 'ready' | 'failed';
 
 interface LocationState {
-  saved: Saved | null;
+  saved: SavedLocation | null;
   status: LocationStatus;
-  error: string | null;
 }
 
-// After a day a device location may be out of date (the customer moved), so it is refreshed.
-// A spot the customer pinned stays until they change it.
-const MAX_DEVICE_LOCATION_AGE_MS = 24 * 60 * 60 * 1000;
 // The browser's own timeout doesn't count the time its permission prompt stays open, so a
 // customer who ignores the prompt would wait forever. After this the location counts as
 // unknown; an answer that comes later is still used.
 const PROMPT_WAIT_MS = 10000;
-const NO_LOCATION = 'Could not get your location.';
-
-const LABELS: Record<LocationSource, string> = {
-  device: 'Your current location',
-  chosen: 'Your pinned location',
-};
-
-/**
- * How the customer got the location they save in the location dialog. A device reading they
- * kept as it was stays a device location: it refreshes daily and is flagged when vague.
- * Anything else is a chosen spot, or a city when `place` is given.
- */
-type ChooseHow =
-  | { source: 'device'; accuracyM: number }
-  | { source: 'chosen'; accuracyM?: number | null; place?: string };
 
 interface UseLocationReturn {
-  location: Location | null;
+  location: Coords | null;
+  saved: SavedLocation | null;
   source: LocationSource | null;
   accuracyM: number | null;
   place: string | null;
-  error: string | null;
   loading: boolean;
   hasRealLocation: boolean;
-  chooseLocation: (point: Coords, how: ChooseHow) => void;
+  chooseLocation: (point: Coords, how: SaveHow) => void;
+  /** Forgets the saved location on this browser (a shared computer, say). */
+  forgetLocation: () => void;
 }
 
-const inRange = (value: unknown, limit: number): value is number =>
-  typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= limit;
-
-function readSaved(): Saved | null {
+function readSaved(): SavedLocation | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Record<string, unknown> | null;
-    const lat = parsed?.lat;
-    const lng = parsed?.lng;
-    const source = parsed?.source;
-    // Out of range, the server would refuse every list asked for with it.
-    if (!inRange(lat, 90) || !inRange(lng, 180)) return null;
-    // Locations saved before pinning existed have no source. They were often a laptop
-    // guessing from its internet connection, so the device is asked again instead.
-    if (source !== 'device' && source !== 'chosen') return null;
-    const place = typeof parsed?.place === 'string' && parsed.place ? parsed.place : null;
-    return {
-      location: { lat, lng, address: LABELS[source] },
-      source,
-      // A city is never a precise pin, even if its accuracy was lost.
-      accuracyM: place
-        ? CITY_ACCURACY_M
-        : typeof parsed?.accuracyM === 'number' && Number.isFinite(parsed.accuracyM)
-          ? parsed.accuracyM
-          : null,
-      place,
-      savedAt: typeof parsed?.savedAt === 'number' ? parsed.savedAt : 0,
-    };
+    return parseSavedLocation(localStorage.getItem(STORAGE_KEY));
   } catch {
     return null;
   }
 }
 
-// One state for every component, so they all show the same location at the same moment.
 const initial = readSaved();
-let state: LocationState = { saved: initial, status: initial ? 'ready' : 'locating', error: null };
+let state: LocationState = { saved: initial, status: initial ? 'ready' : 'locating' };
 const listeners = new Set<() => void>();
 
 function setState(next: Partial<LocationState>) {
@@ -113,27 +68,23 @@ function subscribe(listener: () => void) {
 
 const getSnapshot = () => state;
 
-function save(point: Coords, source: LocationSource, accuracyM: number | null, place: string | null) {
-  const saved: Saved = {
-    location: { lat: point.lat, lng: point.lng, address: LABELS[source] },
-    source,
-    accuracyM,
-    place,
-    savedAt: Date.now(),
-  };
+function save(point: Coords, how: SaveHow) {
+  const saved = makeSavedLocation(point, how);
   try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ lat: point.lat, lng: point.lng, source, accuracyM, ...(place ? { place } : {}), savedAt: saved.savedAt }),
-    );
+    localStorage.setItem(STORAGE_KEY, serializeSavedLocation(saved));
   } catch {
-    // Storage can be unavailable (private mode, quota) — the in-memory copy still works.
+    // Storage can be unavailable (private mode, quota): the in-memory copy still works.
   }
-  setState({ saved, status: 'ready', error: null });
+  setState({ saved, status: 'ready' });
 }
 
-function chooseLocation(point: Coords, how: ChooseHow) {
-  save(point, how.source, how.accuracyM ?? null, how.source === 'chosen' ? (how.place ?? null) : null);
+function forgetLocation() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Nothing to remove where storage is unavailable.
+  }
+  setState({ saved: null, status: 'failed' });
 }
 
 // Another tab saved or cleared the location: use the same one here.
@@ -141,80 +92,85 @@ if (typeof window !== 'undefined') {
   window.addEventListener('storage', (event) => {
     if (event.key !== STORAGE_KEY && event.key !== null) return;
     const saved = readSaved();
-    setState(
-      saved
-        ? { saved, status: 'ready', error: null }
-        : { saved: null, status: state.status === 'locating' ? 'locating' : 'failed' },
-    );
+    setState(saved ? { saved, status: 'ready' } : { saved: null, status: state.status === 'locating' ? 'locating' : 'failed' });
   });
 }
 
-/** Asks the browser where the device is. It never replaces a spot the customer pinned. */
+/** Asks the browser where the device is. It never replaces a spot the customer chose. */
 function requestDeviceLocation() {
   const waiting = !state.saved;
+  const fail = () => {
+    // A refresh that fails keeps the old location on screen.
+    if (!state.saved) setState({ status: 'failed' });
+  };
   if (!navigator.geolocation) {
-    if (waiting) setState({ status: 'failed', error: NO_LOCATION });
+    fail();
     return;
   }
-  if (waiting) setState({ status: 'locating', error: null });
+  if (waiting) setState({ status: 'locating' });
   const giveUp = waiting
     ? setTimeout(() => {
-        if (state.status === 'locating') setState({ status: 'failed', error: NO_LOCATION });
+        if (state.status === 'locating') setState({ status: 'failed' });
       }, PROMPT_WAIT_MS)
     : undefined;
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      clearTimeout(giveUp);
-      // A spot pinned meanwhile, here or in another tab, wins over the device.
-      const pinned = [readSaved(), state.saved].find((saved) => saved?.source === 'chosen');
-      if (pinned) {
-        setState({ saved: pinned, status: 'ready', error: null });
-        return;
-      }
-      save(
-        { lat: position.coords.latitude, lng: position.coords.longitude },
-        'device',
-        Math.round(position.coords.accuracy),
-        null,
-      );
-    },
-    () => {
-      clearTimeout(giveUp);
-      // A refresh that fails keeps the old location on screen.
-      if (!state.saved) setState({ status: 'failed', error: NO_LOCATION });
-    },
-    { enableHighAccuracy: false, timeout: 10000, maximumAge: 5 * 60 * 1000 },
-  );
+  try {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        clearTimeout(giveUp);
+        // A spot chosen meanwhile, here or in another tab, wins over the device.
+        const chosen = [readSaved(), state.saved].find((saved) => saved?.source === 'chosen');
+        if (chosen) {
+          setState({ saved: chosen, status: 'ready' });
+          return;
+        }
+        const reading = deviceReading(position.coords.latitude, position.coords.longitude, position.coords.accuracy);
+        if (!reading) {
+          fail();
+          return;
+        }
+        save(reading.point, { source: 'device', accuracyM: reading.accuracyM });
+      },
+      () => {
+        clearTimeout(giveUp);
+        fail();
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 5 * 60 * 1000 },
+    );
+  } catch {
+    // Some in-app browsers throw instead of calling the error callback.
+    clearTimeout(giveUp);
+    fail();
+  }
 }
 
 // The device is asked by itself at most once per page session: a customer who ignored or
-// refused the prompt isn't asked again on every page, and a stale reading is refreshed once.
+// refused the prompt isn't asked again on every page, and an outdated reading is refreshed once.
 // Only their own action (the location dialog) asks again after that.
 let askedAutomatically = false;
 
 function locateAutomatically() {
   if (askedAutomatically) return;
   const { saved } = state;
-  const stale = saved?.source === 'device' && Date.now() - saved.savedAt > MAX_DEVICE_LOCATION_AGE_MS;
-  if (saved && !stale) return;
+  if (saved && !isOutdated(saved)) return;
   askedAutomatically = true;
   requestDeviceLocation();
 }
 
 export function useLocation(): UseLocationReturn {
-  const { saved, status, error } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const { saved, status } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   useEffect(locateAutomatically, []);
 
   return {
-    location: saved?.location ?? null,
+    location: saved?.point ?? null,
+    saved,
     source: saved?.source ?? null,
     accuracyM: saved?.accuracyM ?? null,
     place: saved?.place ?? null,
-    error,
     loading: status === 'locating',
     hasRealLocation: saved !== null,
-    chooseLocation,
+    chooseLocation: save,
+    forgetLocation,
   };
 }

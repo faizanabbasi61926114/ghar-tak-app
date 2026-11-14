@@ -368,12 +368,47 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // A read that never answers (a stuck mobile connection) would leave its page spinning for
+  // ever, so reads give up after READ_TIMEOUT_MS. Writes are left alone: one that timed out may
+  // still have been carried out, and repeating it could place an order twice.
+  const timeout = method === "GET" || method === "HEAD" ? timeoutSignal(init.signal, READ_TIMEOUT_MS) : null;
+  try {
+    const response = await fetch(input, { ...init, method, headers, signal: timeout?.signal ?? init.signal });
 
-  if (!response.ok) {
-    const errorData = await parseErrorBody(response, method);
-    throw new ApiError(response, errorData, requestInfo);
+    if (!response.ok) {
+      const errorData = await parseErrorBody(response, method);
+      throw new ApiError(response, errorData, requestInfo);
+    }
+
+    return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  } finally {
+    timeout?.clear();
   }
+}
 
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+const READ_TIMEOUT_MS = 20_000;
+
+/**
+ * A signal that aborts after `ms`, or when `parent` aborts. Written out by hand because
+ * AbortSignal.any is missing from browsers a few years old.
+ */
+function timeoutSignal(parent: AbortSignal | null | undefined, ms: number) {
+  const controller = new AbortController();
+  const onParentAbort = () => controller.abort(parent?.reason);
+  if (parent?.aborted) controller.abort(parent.reason);
+  else parent?.addEventListener("abort", onParentAbort, { once: true });
+  const timer = setTimeout(() => {
+    const reason =
+      typeof DOMException === "function"
+        ? new DOMException("The server took too long to answer.", "TimeoutError")
+        : new Error("The server took too long to answer.");
+    controller.abort(reason);
+  }, ms);
+  return {
+    signal: controller.signal,
+    clear: () => {
+      clearTimeout(timer);
+      parent?.removeEventListener("abort", onParentAbort);
+    },
+  };
 }

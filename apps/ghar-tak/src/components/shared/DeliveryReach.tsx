@@ -1,6 +1,6 @@
 import { Navigation } from 'lucide-react';
 import type { Provider } from '@workspace/api-client-react';
-import { deliveryReach, formatDistance } from '@workspace/geo';
+import { approximateReason, checkWhat, deliveryReach, distanceText, reachVerdict } from '@workspace/geo';
 import { useLocationChooser } from '@/components/shared/LocationChooser';
 import { useLocation } from '@/hooks/useLocation';
 import { useNearbyFilter } from '@/hooks/useNearby';
@@ -23,21 +23,15 @@ export default function DeliveryReach({ provider, className = '' }: { provider: 
       <div className={`flex items-center text-muted-foreground ${className}`}>
         <Navigation className="h-4 w-4 mr-2 flex-shrink-0" />
         <span>
-          About {formatDistance(reach.distanceKm)} away · {place ? `you picked ${place}` : 'your location is approximate'}.{' '}
+          {distanceText(reach.distanceKm, true)} · {approximateReason(place)}.{' '}
           <button type="button" onClick={openLocationChooser} className="text-primary hover:underline">
             Pin your location
           </button>{' '}
-          to check {isService ? 'if it serves you' : 'delivery'}.
+          to check {checkWhat(isService)}.
         </span>
       </div>
     );
   }
-
-  // The distance is rounded for display, so one a little past the edge can read as equal to the radius.
-  const justOutside = reach.distanceKm - reach.radiusKm < 0.1;
-  const verdict = reach.reaches
-    ? isService ? 'serves your location' : 'delivers to your location'
-    : `${justOutside ? 'just outside' : 'outside'} its ${reach.radiusKm} km ${isService ? 'service' : 'delivery'} area`;
 
   return (
     <div
@@ -45,7 +39,7 @@ export default function DeliveryReach({ provider, className = '' }: { provider: 
     >
       <Navigation className="h-4 w-4 mr-2 flex-shrink-0" />
       <span>
-        {formatDistance(reach.distanceKm)} away · {verdict}
+        {distanceText(reach.distanceKm, false)} · {reachVerdict(reach, isService)}
       </span>
     </div>
   );

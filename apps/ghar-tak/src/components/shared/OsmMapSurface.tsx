@@ -4,25 +4,29 @@ import { useEffect, useRef, useState } from 'react';
 import type { MapSurfaceProps } from '@/components/shared/mapSurface';
 
 const HINT_MS = 1500;
+// A few failed tiles happen on any connection; this many means the map is effectively blank.
+const TILE_ERRORS_BEFORE_WARNING = 6;
 
 /**
- * OpenStreetMap through Leaflet. Every zoom keeps the middle (the pin) in place, and the
- * scroll wheel only zooms once the map has been clicked, so scrolling the page past it
- * changes nothing. On a phone one finger scrolls the page and two fingers move and zoom
- * the map (like Google's "cooperative" gestures), so a swipe that starts on the map
- * doesn't silently move the pin.
+ * OpenStreetMap through Leaflet. The wheel, double-click, zoom buttons and keys zoom about the
+ * middle (the pin); the wheel only works while the map has focus (clicked or tabbed to), so
+ * scrolling the page past it changes nothing. On a phone one finger scrolls the page and two
+ * fingers move and zoom the map (like Google's "cooperative" gestures), so a swipe that starts
+ * on the map doesn't silently move the pin.
  */
 export default function OsmMapSurface(props: MapSurfaceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
   const [hint, setHint] = useState(false);
+  const [tilesFailing, setTilesFailing] = useState(false);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const { start } = propsRef.current;
     const touchScreen = window.matchMedia('(pointer: coarse)').matches;
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const map = L.map(container, {
       center: [start.point.lat, start.point.lng],
       zoom: start.zoom,
@@ -31,11 +35,23 @@ export default function OsmMapSurface(props: MapSurfaceProps) {
       // Without one-finger dragging Leaflet leaves the page's own scrolling alone
       // (touch-action: pan-x pan-y), and its two-finger handler both zooms and pans.
       ...(touchScreen ? { dragging: false, touchZoom: true } : { touchZoom: 'center' as const }),
+      ...(calm ? { zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false, inertia: false } : {}),
     });
+    let tileErrors = 0;
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
-    }).addTo(map);
+    })
+      // Without tiles the map is a grey box, and a seller could drop a pin blind.
+      .on('tileerror', () => {
+        tileErrors += 1;
+        if (tileErrors === TILE_ERRORS_BEFORE_WARNING) setTilesFailing(true);
+      })
+      .on('tileload', () => {
+        tileErrors = 0;
+        setTilesFailing(false);
+      })
+      .addTo(map);
 
     map.scrollWheelZoom.disable();
     map.on('focus', () => map.scrollWheelZoom.enable());
@@ -68,18 +84,25 @@ export default function OsmMapSurface(props: MapSurfaceProps) {
       container.addEventListener('touchmove', onTouchMove, { passive: true });
     }
 
-    // Dialogs animate in, so the map can start at the wrong size.
-    const resize = new ResizeObserver(() => map.invalidateSize());
-    resize.observe(container);
+    // Dialogs animate in, so the map can start at the wrong size. Very old in-app browsers
+    // have no ResizeObserver; there the map just keeps the size it started with.
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => map.invalidateSize());
+    resize?.observe(container);
 
     propsRef.current.onReady({
       moveTo: (point, zoom) => map.setView([point.lat, point.lng], zoom),
       zoom: () => map.getZoom(),
+      viewKm: () => {
+        const bounds = map.getBounds();
+        const tall = map.distance(bounds.getNorthWest(), bounds.getSouthWest());
+        const wide = map.distance(bounds.getNorthWest(), bounds.getNorthEast());
+        return Math.min(tall, wide) / 1000;
+      },
     });
 
     return () => {
       propsRef.current.onReady(null);
-      resize.disconnect();
+      resize?.disconnect();
       window.clearTimeout(hintTimer);
       container.removeEventListener('keydown', onKey);
       container.removeEventListener('touchstart', onTouchStart);
@@ -97,6 +120,11 @@ export default function OsmMapSurface(props: MapSurfaceProps) {
         aria-label="Map. Move it until the pin in the middle sits on the right spot."
         tabIndex={0}
       />
+      {tilesFailing && (
+        <div role="status" className="pointer-events-none absolute inset-x-0 top-0 z-[1100] bg-background/90 px-3 py-2 text-center text-xs">
+          Map pictures aren't loading. Check your connection; the pin still works.
+        </div>
+      )}
       {hint && (
         <div
           aria-hidden="true"

@@ -2,6 +2,10 @@
 // the seller already has a store) its reply says why. Show that instead of a bare "failed".
 export function apiErrorReason(error: unknown): string | undefined {
   const { status, data } = (error ?? {}) as { status?: number; data?: unknown };
+  // No answer at all: the request never reached the server. What was typed is kept.
+  if (!status && error instanceof TypeError) {
+    return "Can't reach Ghar Tak. Check your connection and try again.";
+  }
   if (!status || status >= 500 || !data || typeof data !== "object") return undefined;
 
   const { error: message, fields } = data as {

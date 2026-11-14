@@ -1,7 +1,8 @@
 import LazyMapChunk from '@/components/shared/LazyMapChunk';
 import type { LocationPickerProps } from '@/components/shared/LocationPicker';
 
-// The map library is only downloaded when a form with a map opens.
+// The picker (with its Google Maps surface) is only downloaded when a map first shows; the
+// OpenStreetMap fallback is a further download, only when Google can't be used.
 const loadLocationPicker = () => import('@/components/shared/LocationPicker');
 
 /**

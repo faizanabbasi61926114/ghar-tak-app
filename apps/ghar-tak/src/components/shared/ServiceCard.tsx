@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Star, CalendarClock, Heart, Navigation, BadgeCheck } from 'lucide-react';
-import { formatDistance } from '@workspace/geo';
+import { distanceText } from '@workspace/geo';
 import { useFavorites } from '@/hooks/useFavorites';
 
 interface ServiceCardProps {
@@ -63,7 +63,7 @@ export default function ServiceCard({ serviceProvider, distanceKm, approximate =
           {typeof distanceKm === 'number' && (
             <div className="flex items-center">
               <Navigation className="h-3 w-3 mr-1.5 flex-shrink-0" />
-              <span>{approximate ? 'About ' : ''}{formatDistance(distanceKm)} away</span>
+              <span>{distanceText(distanceKm, approximate)}</span>
             </div>
           )}
           <div className="flex items-center">

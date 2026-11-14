@@ -18,6 +18,11 @@ const rejectionListeners = new Set<() => void>();
 export function loadGoogleMaps(): Promise<void> {
   if (loading) return loading;
   loading = new Promise<void>((resolve, reject) => {
+    // Installed first, so a rejected key is reported even when the script is already on the page.
+    (window as MapsWindow).gm_authFailure = () => {
+      keyRejected = true;
+      rejectionListeners.forEach((listener) => listener());
+    };
     if (typeof window.google !== 'undefined' && window.google.maps) {
       resolve();
       return;
@@ -26,13 +31,9 @@ export function loadGoogleMaps(): Promise<void> {
       reject(new Error('VITE_GOOGLE_MAPS_API_KEY is not set'));
       return;
     }
-    (window as MapsWindow).gm_authFailure = () => {
-      keyRejected = true;
-      rejectionListeners.forEach((listener) => listener());
-    };
     const script = document.createElement('script');
     script.id = 'google-maps-script';
-    // The same address the home map always used, so its classes are ready when the script loads.
+    // libraries=places is for the home map's place search.
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(API_KEY)}&libraries=places`;
     script.async = true;
     script.onload = () => resolve();
@@ -44,7 +45,8 @@ export function loadGoogleMaps(): Promise<void> {
     };
     document.head.appendChild(script);
   });
-  // A failed load can be retried on the next page that needs a map.
+  // A failed load can be tried again (the home map does), but location pickers use
+  // OpenStreetMap for the rest of the visit (googleMapsUnavailable) rather than wait again.
   loading.catch(() => {
     loading = null;
   });

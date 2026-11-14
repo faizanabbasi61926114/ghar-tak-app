@@ -29,19 +29,25 @@ export default function PersonalizedSuggestionsSection() {
   // With a precise location the server sends only the stores that deliver there, nearest
   // first; with a rough one every store is listed, nearest first by that rough location.
   const { point, filterPoint } = useNearbyFilter();
-  const storeParams = { type: 'store' as const, ...filterPoint };
-  const { data: stores, isLoading: storesLoading } = useListProviders(
+  // The same request as the other home lists, so it is shared rather than asked again.
+  // Restaurants count as stores here too, as everywhere else on the site.
+  const storeParams = filterPoint ?? {};
+  const { data: providers, isLoading: storesLoading } = useListProviders(
     storeParams,
     { query: { queryKey: getListProvidersQueryKey(storeParams) } }
+  );
+  const stores = useMemo(
+    () => (Array.isArray(providers) ? providers : []).filter((provider) => provider.type !== 'service'),
+    [providers],
   );
   const { data: orders, isLoading: ordersLoading } = useListMyOrders({
     query: { enabled: !!user, queryKey: ["listMyOrders"] },
   });
 
-  const nearestStores = useMemo(() => {
-    const list = Array.isArray(stores) ? stores : [];
-    return (filterPoint ? list : sortByDistance(list, point)).slice(0, NEAREST_STORES);
-  }, [stores, filterPoint, point]);
+  const nearestStores = useMemo(
+    () => (filterPoint ? stores : sortByDistance(stores, point)).slice(0, NEAREST_STORES),
+    [stores, filterPoint, point],
+  );
 
   const store1 = nearestStores[0]?.id ?? '';
   const store2 = nearestStores[1]?.id ?? '';
@@ -172,7 +178,9 @@ export default function PersonalizedSuggestionsSection() {
         <div className="text-center py-10 px-6 border rounded-lg bg-card shadow-sm min-h-[150px] flex flex-col items-center justify-center">
           <Search className="h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-lg text-muted-foreground mb-1">No suggestions right now.</p>
-          <p className="text-md text-muted-foreground">Search something to suggest or enable location!</p>
+          <p className="text-md text-muted-foreground">
+            {point ? 'Suggestions grow as you order from shops near you.' : 'Set your location to get suggestions from shops near you.'}
+          </p>
         </div>
       </section>
     );

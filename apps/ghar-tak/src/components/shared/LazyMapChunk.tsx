@@ -7,13 +7,18 @@ type Loader<P> = () => Promise<{ default: ComponentType<P> }>;
 // once shows straight away the next time (a dialog opening again) without a loading flash.
 const chunks = new Map<Loader<never>, LazyExoticComponent<ComponentType<never>>>();
 
-function chunkFor<P>(load: Loader<P>, fresh: boolean): LazyExoticComponent<ComponentType<P>> {
+function getChunk<P>(load: Loader<P>): LazyExoticComponent<ComponentType<P>> {
   let chunk = chunks.get(load as Loader<never>);
-  if (!chunk || fresh) {
+  if (!chunk) {
     chunk = lazy(load as Loader<never>);
     chunks.set(load as Loader<never>, chunk);
   }
   return chunk as unknown as LazyExoticComponent<ComponentType<P>>;
+}
+
+/** React keeps a failed import and throws it again, so a retry needs a new lazy(). */
+function forgetChunk(load: Loader<never>) {
+  chunks.delete(load);
 }
 
 class ChunkErrorBoundary extends Component<
@@ -53,11 +58,10 @@ export default function LazyMapChunk<P extends object>({
 }) {
   const [attempt, setAttempt] = useState(0);
   const [failures, setFailures] = useState(0);
-  const Chunk = chunkFor(load, false) as ComponentType<P>;
+  const Chunk = getChunk(load) as ComponentType<P>;
 
   const retry = () => {
-    // React keeps a failed import and throws it again, so a retry needs a new lazy().
-    chunkFor(load, true);
+    forgetChunk(load as Loader<never>);
     setAttempt((n) => n + 1);
   };
 

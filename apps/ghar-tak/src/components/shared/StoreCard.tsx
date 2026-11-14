@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Heart, MapPin, Star, Clock, Navigation } from 'lucide-react';
 import { useFavorites } from '@/hooks/useFavorites';
-import { formatDistance } from '@workspace/geo';
+import { distanceText } from '@workspace/geo';
 
 interface StoreCardProps {
   store: Provider;
@@ -33,14 +33,15 @@ export default function StoreCard({ store, distanceKm, approximate = false }: St
       </CardHeader>
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-2">
-          <Link href={`/stores/${store.id}`}>
-            <CardTitle className="text-lg font-headline hover:text-primary transition-colors">{store.name}</CardTitle>
+          <Link href={`/stores/${store.id}`} className="min-w-0">
+            {/* A long unbroken name wraps instead of pushing the heart out of the card. */}
+            <CardTitle className="text-lg font-headline hover:text-primary transition-colors [overflow-wrap:anywhere]" dir="auto">{store.name}</CardTitle>
           </Link>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => toggleFavourite(store.id)}
-            className={isFav ? 'text-destructive' : 'text-muted-foreground hover:text-destructive'}
+            className={`flex-shrink-0 ${isFav ? 'text-destructive' : 'text-muted-foreground hover:text-destructive'}`}
             aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
           >
             <Heart className={`h-5 w-5 ${isFav ? 'fill-destructive' : ''}`} />
@@ -54,14 +55,14 @@ export default function StoreCard({ store, distanceKm, approximate = false }: St
 
         <div className="flex items-center text-xs text-muted-foreground mb-1">
           <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
-          <span>{store.address || 'Unknown location'}</span>
+          <span className="min-w-0 [overflow-wrap:anywhere]" dir="auto">{store.address || 'Unknown location'}</span>
         </div>
 
         <div className="flex items-center space-x-2 text-xs text-muted-foreground">
           {typeof distanceKm === 'number' && (
             <div className="flex items-center">
               <Navigation className="h-3 w-3 mr-1" />
-              <span>{approximate ? 'About ' : ''}{formatDistance(distanceKm)} away</span>
+              <span>{distanceText(distanceKm, approximate)}</span>
             </div>
           )}
           {store.rating > 0 && (

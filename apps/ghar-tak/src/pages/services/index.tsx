@@ -12,7 +12,13 @@ import { useNearbyScope } from '@/hooks/useNearby';
 import { providerDistance, sortByDistance } from '@workspace/geo';
 
 export default function AllServicesPage() {
-  const { data: categories, isLoading: categoriesLoading } = useListCategories({ query: { queryKey: ["listCategories"] } });
+  const {
+    data: categories,
+    isLoading: categoriesLoading,
+    isError: categoriesFailed,
+    isFetching: categoriesFetching,
+    refetch: refetchCategories,
+  } = useListCategories({ query: { queryKey: ["listCategories"] } });
   const { point, filterPoint, showAll, approximate } = useNearbyScope();
   // With a location the server sends only the providers whose service area covers it, nearest first.
   const params = { type: 'service' as const, ...filterPoint };
@@ -37,6 +43,8 @@ export default function AllServicesPage() {
         </div>
         {categoriesLoading ? (
           <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>
+        ) : categoriesFailed && !categories ? (
+          <LoadError what="service categories" retrying={categoriesFetching} onRetry={() => void refetchCategories()} />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {(Array.isArray(categories) ? categories : []).map((category) => {
@@ -62,7 +70,7 @@ export default function AllServicesPage() {
       <section>
         <div className="mb-6">
           <h2 className="text-2xl font-semibold font-headline">{filterPoint ? 'Service Providers Near You' : 'All Service Providers'}</h2>
-          {point && <NearbyScopeSwitch path="/services" showAll={showAll} approximate={approximate} />}
+          <NearbyScopeSwitch path="/services" showAll={showAll} approximate={approximate} known={point !== null} />
         </div>
         {providersLoading ? (
           <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>

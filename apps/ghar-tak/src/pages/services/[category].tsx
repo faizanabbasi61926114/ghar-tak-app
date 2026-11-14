@@ -12,7 +12,13 @@ import { useNearbyScope } from '@/hooks/useNearby';
 import { providerDistance, sortByDistance } from '@workspace/geo';
 
 export default function ServiceCategoryPage({ params }: { params: { category: string } }) {
-  const { data: categories, isLoading: categoriesLoading } = useListCategories({ query: { queryKey: ["listCategories"] } });
+  const {
+    data: categories,
+    isLoading: categoriesLoading,
+    isError: categoriesFailed,
+    isFetching: categoriesFetching,
+    refetch: refetchCategories,
+  } = useListCategories({ query: { queryKey: ["listCategories"] } });
   const categoriesList = Array.isArray(categories) ? categories : [];
   // Older links use the category's name ("Plumber") instead of its id ("plumber").
   const wanted = params.category.toLowerCase();
@@ -29,8 +35,13 @@ export default function ServiceCategoryPage({ params }: { params: { category: st
     return filterPoint ? list : sortByDistance(list, point);
   }, [providers, filterPoint, point]);
 
-  if (categoriesLoading || providersLoading) {
+  if (categoriesLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>;
+  }
+
+  // A failed request says nothing about whether the category exists.
+  if (categoriesFailed && !categories) {
+    return <LoadError what="service categories" retrying={categoriesFetching} onRetry={() => void refetchCategories()} />;
   }
 
   if (!category) {
@@ -59,14 +70,16 @@ export default function ServiceCategoryPage({ params }: { params: { category: st
             <Icon className="h-8 w-8 text-primary mr-3" />
             <h1 className="text-3xl font-bold font-headline">{category.name}</h1>
           </div>
-          {point && <NearbyScopeSwitch path={`/services/${params.category}`} showAll={showAll} approximate={approximate} />}
+          <NearbyScopeSwitch path={`/services/${params.category}`} showAll={showAll} approximate={approximate} known={point !== null} />
         </div>
         <div className="w-full md:w-1/2 lg:w-1/3">
             <SearchInput placeholder={`Search in ${category.name}...`} />
         </div>
       </div>
 
-      {providersFailed && !providers ? (
+      {providersLoading ? (
+        <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>
+      ) : providersFailed && !providers ? (
         <LoadError what={category.name.toLowerCase()} retrying={providersFetching} onRetry={() => void refetchProviders()} />
       ) : sortedProviders.length === 0 ? (
         filterPoint ? (

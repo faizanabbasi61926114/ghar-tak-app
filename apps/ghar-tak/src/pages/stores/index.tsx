@@ -32,7 +32,7 @@ export default function AllStoresPage() {
             <ShoppingCart className="h-8 w-8 text-primary mr-3" />
             <h1 className="text-3xl font-bold font-headline">{filterPoint ? 'Stores near you' : 'All Stores'}</h1>
           </div>
-          {point && <NearbyScopeSwitch path="/stores" showAll={showAll} approximate={approximate} />}
+          <NearbyScopeSwitch path="/stores" showAll={showAll} approximate={approximate} known={point !== null} />
         </div>
         <div className="w-full md:w-1/2 lg:w-1/3">
          <SearchInput placeholder="Search stores..." />

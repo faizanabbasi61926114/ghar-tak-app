@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { distanceKm } from '@workspace/geo';
 import type { MapSurfaceProps } from '@/components/shared/mapSurface';
 import { loadGoogleMaps, markGoogleMapsUnavailable, onGoogleMapsKeyRejected } from '@/lib/googleMaps';
 
@@ -70,6 +71,15 @@ export default function GoogleMapSurface(props: MapSurfaceProps) {
             map.setCenter(point);
           },
           zoom: () => map.getZoom() ?? start.zoom,
+          viewKm: () => {
+            const bounds = map.getBounds();
+            if (!bounds) return 0;
+            const ne = bounds.getNorthEast();
+            const sw = bounds.getSouthWest();
+            const tall = distanceKm({ lat: ne.lat(), lng: sw.lng() }, { lat: sw.lat(), lng: sw.lng() });
+            const wide = distanceKm({ lat: sw.lat(), lng: sw.lng() }, { lat: sw.lat(), lng: ne.lng() });
+            return Math.min(tall, wide);
+          },
         });
       })
       .catch(() => {

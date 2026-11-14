@@ -240,7 +240,7 @@ export default function StoreDetailPage({ params }: { params: { id: string } }) 
             <div className="text-sm text-muted-foreground space-y-1 md:text-right mt-4 md:mt-0 flex-shrink-0 md:pl-6">
               <div className="flex items-center md:justify-end">
                 <MapPin className="h-4 w-4 mr-2 text-primary flex-shrink-0" />
-                <span>{store.address || 'Location not specified'}</span>
+                <span className="min-w-0 [overflow-wrap:anywhere]" dir="auto">{store.address || 'Location not specified'}</span>
               </div>
               <DeliveryReach provider={store} className="md:justify-end" />
               {store.phone && (

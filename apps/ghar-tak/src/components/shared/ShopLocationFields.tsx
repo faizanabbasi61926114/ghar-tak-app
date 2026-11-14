@@ -1,10 +1,14 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import {
+  CITIES,
   DEFAULT_DELIVERY_RADIUS_KM,
   MAX_DELIVERY_RADIUS_KM,
   MIN_DELIVERY_RADIUS_KM,
+  isWideView,
   type Coords,
+  type PointOrigin,
 } from '@workspace/geo';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import LazyLocationPicker from '@/components/shared/LazyLocationPicker';
@@ -59,6 +63,10 @@ export default function ShopLocationFields({
   const locationLabelId = useId();
   const isService = providerType === 'service';
   const problem = radiusProblem(value.radiusKm);
+  const [jumpTo, setJumpTo] = useState<{ point: Coords; zoom: number } | null>(null);
+  // How the pin got where it is: a city button or a far-out drag only puts it near the shop.
+  const [origin, setOrigin] = useState<PointOrigin | null>(null);
+  const roughPin = origin?.kind === 'jump' || (origin?.kind === 'moved' && isWideView(origin.viewKm));
 
   return (
     <div className="space-y-4">
@@ -68,12 +76,35 @@ export default function ShopLocationFields({
           Move the map until the pin sits on your {isService ? 'base' : 'shop'}. Customers only see you in their
           "near me" lists once this is set.
         </p>
+        <div className="flex flex-wrap gap-2">
+          {CITIES.map((city) => (
+            <Button
+              key={city.name}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setJumpTo({ point: { lat: city.lat, lng: city.lng }, zoom: 13 })}
+            >
+              {city.name}
+            </Button>
+          ))}
+        </div>
         <LazyLocationPicker
           value={value.point}
-          onChange={(point) => onChange({ ...value, point })}
+          onChange={(point, how) => {
+            setOrigin(how);
+            onChange({ ...value, point });
+          }}
           openAt={openAt}
+          jumpTo={jumpTo}
           labelledBy={locationLabelId}
         />
+        {roughPin && (
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Zoom in and drag the map until the pin sits exactly on your {isService ? 'base' : 'shop'}: customers' distances are
+            measured from it.
+          </p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor={radiusId}>{isService ? 'Service area (km)' : 'Delivery radius (km)'}</Label>

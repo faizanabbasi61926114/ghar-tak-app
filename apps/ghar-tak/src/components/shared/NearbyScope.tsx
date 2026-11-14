@@ -1,4 +1,5 @@
 import { Link } from 'wouter';
+import { approximateListNote } from '@workspace/geo';
 import { Button } from '@/components/ui/button';
 import { useLocationChooser } from '@/components/shared/LocationChooser';
 import { useLocation } from '@/hooks/useLocation';
@@ -6,17 +7,39 @@ import { useLocation } from '@/hooks/useLocation';
 /**
  * The line under a list's title that switches between "near me" and "all". With an
  * approximate location there is nothing to switch: everything is listed, nearest first,
- * and the customer is asked to pin their location.
+ * and the customer is asked to pin their location. With none, they are asked to set one.
  */
-export function NearbyScopeSwitch({ path, showAll, approximate = false }: { path: string; showAll: boolean; approximate?: boolean }) {
-  const { place } = useLocation();
+export function NearbyScopeSwitch({
+  path,
+  showAll,
+  approximate,
+  known,
+}: {
+  path: string;
+  showAll: boolean;
+  approximate: boolean;
+  /** Whether any location is known, however rough. */
+  known: boolean;
+}) {
+  const { place, loading } = useLocation();
   const { openLocationChooser } = useLocationChooser();
+  if (!known) {
+    // While the browser is still answering there is nothing useful to say yet.
+    if (loading) return null;
+    return (
+      <p className="text-sm text-amber-700 dark:text-amber-400">
+        We don't know where you are, so everything is shown.{' '}
+        <button type="button" onClick={openLocationChooser} className="text-primary hover:underline">
+          Set your location
+        </button>{' '}
+        to see the ones that reach you.
+      </p>
+    );
+  }
   if (approximate) {
     return (
       <p className="text-sm text-amber-700 dark:text-amber-400">
-        {place
-          ? `You picked ${place}, so everything is shown, nearest first. `
-          : 'Your location is only approximate, so everything is shown, nearest first. '}
+        {approximateListNote(place)}{' '}
         <button type="button" onClick={openLocationChooser} className="text-primary hover:underline">
           Pin your location
         </button>{' '}

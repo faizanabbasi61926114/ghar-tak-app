@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, LocateFixed, MapPin } from 'lucide-react';
-import type { Coords } from '@workspace/geo';
+import {
+  DEFAULT_MAP_CENTER,
+  accuracyNote,
+  cleanPoint,
+  deviceReading,
+  type Coords,
+  type PointOrigin,
+} from '@workspace/geo';
 import { Button } from '@/components/ui/button';
 import GoogleMapSurface from '@/components/shared/GoogleMapSurface';
 import LazyMapChunk from '@/components/shared/LazyMapChunk';
@@ -10,30 +17,19 @@ import { googleMapsUnavailable, hasGoogleMapsKey } from '@/lib/googleMaps';
 // The OpenStreetMap library is only downloaded when Google Maps can't be used.
 const loadOsmSurface = () => import('@/components/shared/OsmMapSurface');
 
-// Where the map opens when there is no pin yet and no better guess.
-const LAHORE: Coords = { lat: 31.5204, lng: 74.3587 };
-
-/**
- * As the database keeps it: 7 decimals (about 1 cm), and the longitude wrapped into
- * -180..180 (dragging past the edge of the world shows another copy of it).
- */
-function clean(point: Coords): Coords {
-  const lng = ((((point.lng + 180) % 360) + 360) % 360) - 180;
-  return { lat: Math.round(point.lat * 1e7) / 1e7, lng: Math.round(lng * 1e7) / 1e7 };
-}
+// The map box is h-72 (288 px); zoom levels are worked out for that height.
+const MAP_HEIGHT_PX = 288;
+// The browser's own timeout doesn't count the time its permission prompt stays open.
+const LOCATE_WAIT_MS = 20000;
 
 const samePoint = (a: Coords, b: Coords) => a.lat === b.lat && a.lng === b.lng;
 
-/** How the point that was just reported came to be chosen. */
-export type PointOrigin =
-  /** The person dragged, pinched or used the arrow keys. */
-  | { kind: 'moved' }
-  /** "Use my current location" placed it, and the map hasn't been moved since. */
-  | { kind: 'device'; accuracyM: number }
-  /** A `jumpTo` (a city button, say) placed it, and the map hasn't been moved since. */
-  | { kind: 'jump' }
-  /** The map opened on `value` (or `value` was set from outside) and nobody has moved it. */
-  | { kind: 'initial' };
+/** The web-map zoom at which the map box shows about `km` of ground from top to bottom. */
+function zoomForViewKm(km: number, lat: number): number {
+  const metresPerPixelAtZoom0 = 156543.03 * Math.cos((lat * Math.PI) / 180);
+  const zoom = Math.log2((metresPerPixelAtZoom0 * MAP_HEIGHT_PX) / (km * 1000));
+  return Math.min(18, Math.max(3, Math.round(zoom)));
+}
 
 export interface LocationPickerProps {
   /** The chosen point, or null while nothing has been chosen. */
@@ -42,23 +38,26 @@ export interface LocationPickerProps {
   onChange: (point: Coords, origin: PointOrigin) => void;
   /** Where to open the map when `value` is null, e.g. the customer's last known location. */
   openAt?: Coords | null;
+  /** How much ground to show around `value` when the map opens (a vague location opens wider). */
+  openViewKm?: number;
   /** Each new object moves the map there and chooses that spot (a city button, say). */
-  jumpTo?: { point: Coords; zoom: number } | null;
+  jumpTo?: { point: Coords; zoom: number; city?: string } | null;
   /** The id of the element that names this map (a form label), for screen readers. */
   labelledBy?: string;
 }
 
 /**
  * A map with a fixed pin in the middle: the person drags the map until the pin sits on the
- * right spot. Nothing is chosen until they drag it (or pan with the arrow keys) or use their
- * current location, so an untouched map never saves the place it happened to open at, and
- * scrolling the page past the map changes nothing. Google Maps when a working key is set,
- * otherwise OpenStreetMap.
+ * right spot. Nothing is chosen until they move the map, jump to a city or use their current
+ * location (or `value` is set from outside), so an untouched map never saves the place it
+ * happened to open at, and scrolling the page past the map changes nothing. Google Maps when
+ * a working key is set, otherwise OpenStreetMap.
  */
 export default function LocationPicker({
   value,
   onChange,
   openAt,
+  openViewKm,
   jumpTo,
   labelledBy,
 }: LocationPickerProps) {
@@ -77,7 +76,9 @@ export default function LocationPicker({
   // the zooms and map events that follow it, until the person moves the map themselves.
   const originRef = useRef<PointOrigin>({ kind: 'initial' });
   // A city jump asked for before the map was ready.
-  const pendingJumpRef = useRef<{ point: Coords; zoom: number } | null>(null);
+  const pendingJumpRef = useRef<{ point: Coords; zoom: number; city?: string } | null>(null);
+  // Bumped by every choice, so a location reading that arrives late can't undo a later one.
+  const choiceRef = useRef(0);
   const [locating, setLocating] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -86,23 +87,34 @@ export default function LocationPicker({
     onChangeRef.current(point, originRef.current);
   };
 
-  const placeJump = (handle: MapSurfaceHandle, jump: { point: Coords; zoom: number }) => {
-    touchedRef.current = true;
-    originRef.current = { kind: 'jump' };
-    setNote(null);
-    handle.moveTo(jump.point, jump.zoom);
-    report(clean(jump.point));
+  const supersedeLocating = () => {
+    choiceRef.current += 1;
+    setLocating(false);
   };
 
+  const placeJump = (handle: MapSurfaceHandle, jump: { point: Coords; zoom: number; city?: string }) => {
+    supersedeLocating();
+    touchedRef.current = true;
+    originRef.current = { kind: 'jump', ...(jump.city ? { city: jump.city } : {}) };
+    setNote(null);
+    handle.moveTo(jump.point, jump.zoom);
+    report(cleanPoint(jump.point));
+  };
+
+  const start = value ?? openAt ?? DEFAULT_MAP_CENTER;
   const surfaceProps: MapSurfaceProps = {
-    start: { point: value ?? openAt ?? LAHORE, zoom: value ? 17 : 13 },
+    start: { point: start, zoom: value ? zoomForViewKm(openViewKm ?? 0.3, start.lat) : 13 },
     onUserMove: () => {
+      supersedeLocating();
       touchedRef.current = true;
       originRef.current = { kind: 'moved' };
       setNote(null);
     },
     onMoveEnd: (center) => {
-      if (touchedRef.current) report(clean(center));
+      if (!touchedRef.current) return;
+      // A pin dragged while the map shows a whole city only marks an area (see PointOrigin).
+      if (originRef.current.kind === 'moved') originRef.current = { kind: 'moved', viewKm: handleRef.current?.viewKm() };
+      report(cleanPoint(center));
     },
     onReady: (handle) => {
       handleRef.current = handle;
@@ -141,38 +153,63 @@ export default function LocationPicker({
     placeJump(handle, jumpTo);
   }, [jumpTo]);
 
-  const useCurrentLocation = () => {
+  const locateMe = () => {
+    if (!window.isSecureContext) {
+      setNote('Browsers only share your location with secure (https) pages. Move the map to the right spot instead.');
+      return;
+    }
     if (!navigator.geolocation) {
       setNote("This browser can't share its location. Move the map to the right spot instead.");
       return;
     }
+    choiceRef.current += 1;
+    const ticket = choiceRef.current;
+    const isCurrent = () => ticket === choiceRef.current;
     setLocating(true);
     setNote(null);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocating(false);
-        const point = clean({ lat: position.coords.latitude, lng: position.coords.longitude });
-        const metres = Math.round(position.coords.accuracy);
-        touchedRef.current = true;
-        originRef.current = { kind: 'device', accuracyM: metres };
-        handleRef.current?.moveTo(point, 18);
-        report(point);
-        setNote(
-          metres > 100
-            ? `Your device only knows this to within about ${metres >= 1000 ? `${(metres / 1000).toFixed(1)} km` : `${metres} m`}. Move the map so the pin sits exactly on the right spot.`
-            : `Placed to within about ${metres} m. Check that the pin is on the right spot.`,
-        );
-      },
-      (error) => {
-        setLocating(false);
-        setNote(
-          error.code === error.PERMISSION_DENIED
-            ? 'Location permission is turned off. Move the map to the right spot instead.'
-            : "Couldn't get your location. Move the map to the right spot instead.",
-        );
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+    // An ignored permission prompt, or an in-app browser that never answers, must not leave
+    // the button spinning for ever.
+    const giveUp = window.setTimeout(() => {
+      if (!isCurrent()) return;
+      supersedeLocating();
+      setNote('Finding your location took too long. Move the map to the right spot instead.');
+    }, LOCATE_WAIT_MS);
+    const failed = (message: string) => {
+      window.clearTimeout(giveUp);
+      if (!isCurrent()) return;
+      setLocating(false);
+      setNote(message);
+    };
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          window.clearTimeout(giveUp);
+          if (!isCurrent()) return;
+          setLocating(false);
+          const reading = deviceReading(position.coords.latitude, position.coords.longitude, position.coords.accuracy);
+          if (!reading) {
+            setNote("Couldn't get your location. Move the map to the right spot instead.");
+            return;
+          }
+          const point = cleanPoint(reading.point);
+          touchedRef.current = true;
+          originRef.current = { kind: 'device', accuracyM: reading.accuracyM };
+          handleRef.current?.moveTo(point, 18);
+          report(point);
+          setNote(accuracyNote(reading.accuracyM));
+        },
+        (error) =>
+          failed(
+            error.code === error.PERMISSION_DENIED
+              ? 'Location permission is turned off. Move the map to the right spot instead.'
+              : "Couldn't get your location. Move the map to the right spot instead.",
+          ),
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+      );
+    } catch {
+      // Some in-app browsers throw instead of calling the error callback.
+      failed("Couldn't get your location. Move the map to the right spot instead.");
+    }
   };
 
   return (
@@ -190,11 +227,12 @@ export default function LocationPicker({
         />
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        <Button type="button" variant="outline" size="sm" onClick={useCurrentLocation} disabled={locating}>
+        <Button type="button" variant="outline" size="sm" onClick={locateMe} disabled={locating}>
           {locating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LocateFixed className="mr-2 h-4 w-4" />}
           Use my current location
         </Button>
-        <span role="status" className="text-muted-foreground">
+        {/* Not a live region: it changes on every map move, which would flood a screen reader. */}
+        <span className="text-muted-foreground">
           {value ? (
             <>
               Pin at {value.lat.toFixed(5)}, {value.lng.toFixed(5)} ·{' '}

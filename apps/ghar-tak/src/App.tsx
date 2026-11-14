@@ -55,15 +55,21 @@ if (!clerkPubKey) {
 }
 
 // A 4xx answer (not found, not allowed) won't change on a retry, so show it straight away
-// instead of retrying three times. Network and server errors keep the usual retries.
+// instead of retrying three times. A request that timed out (20 s) is tried once more.
+// Network and server errors keep the usual retries.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: (failureCount, error) => {
         const status = (error as { status?: number } | null)?.status;
         if (typeof status === 'number' && status >= 400 && status < 500) return false;
+        if ((error as { name?: string } | null)?.name === 'TimeoutError') return failureCount < 1;
         return failureCount < 3;
       },
+      // Offline, TanStack would otherwise pause a request: the page then has neither data nor
+      // an error, and lists fell through to "No stores deliver to your location yet". Trying
+      // anyway fails fast, and the page shows "couldn't load" with Try again instead.
+      networkMode: 'always',
     },
   },
 });
@@ -140,6 +146,8 @@ function returnUrl(): string {
   try {
     path = sessionStorage.getItem(RETURN_PATH_KEY) || '/';
   } catch { /* use Home */ }
+  // Only a path on this site: "//other.site" or "/\other.site" would send the customer away.
+  if (!/^\/(?![/\\])/.test(path)) path = '/';
   return `${basePath}${path}`;
 }
 

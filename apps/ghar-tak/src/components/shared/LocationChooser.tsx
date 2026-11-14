@@ -1,7 +1,14 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
-import { CITIES, CITY_ACCURACY_M, type Coords } from '@workspace/geo';
+import {
+  CITIES,
+  isApproximate,
+  isWideView,
+  locationToSave,
+  viewKmFor,
+  type Coords,
+  type PointOrigin,
+} from '@workspace/geo';
 import LazyLocationPicker from '@/components/shared/LazyLocationPicker';
-import type { PointOrigin } from '@/components/shared/LocationPicker';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -81,25 +88,26 @@ function LocationChooser({
 }
 
 function ChooserBody({ onDone }: { onDone: () => void }) {
-  const { location, chooseLocation } = useLocation();
-  const [point, setPoint] = useState<Coords | null>(() => (location ? { lat: location.lat, lng: location.lng } : null));
-  // How the point on the map was chosen decides how it is saved.
+  const { saved, chooseLocation, forgetLocation } = useLocation();
+  const [point, setPoint] = useState<Coords | null>(() => saved?.point ?? null);
   const [origin, setOrigin] = useState<PointOrigin>({ kind: 'initial' });
   const [jumpTo, setJumpTo] = useState<{ point: Coords; zoom: number; city: string } | null>(null);
-  const pickedCity = origin.kind === 'jump' ? jumpTo?.city : undefined;
+  // A vague saved location opens wide enough for the customer to find their own area.
+  const [openViewKm] = useState(() => viewKmFor(saved?.accuracyM ?? null));
+  const pickedCity = origin.kind === 'jump' ? origin.city : undefined;
+  // Saving an untouched map changes nothing, which would look broken for a vague location.
+  const mustMove = origin.kind === 'initial' && saved !== null && isApproximate(saved.accuracyM);
 
   const save = () => {
     if (!point) return;
-    if (origin.kind === 'device') {
-      // A device reading kept as it was stays one: refreshed daily, flagged when vague.
-      chooseLocation(point, { source: 'device', accuracyM: origin.accuracyM });
-    } else if (origin.kind === 'jump') {
-      // A city on its own is too vague to say who delivers, so the lists sort by it instead.
-      chooseLocation(point, { source: 'chosen', accuracyM: CITY_ACCURACY_M, place: pickedCity });
-    } else if (origin.kind === 'moved') {
-      chooseLocation(point, { source: 'chosen' });
-    }
-    // 'initial': nobody moved the map, so the saved location stays exactly as it was.
+    // Nothing moved ('initial'): the saved location stays exactly as it was.
+    const toSave = locationToSave(origin, point);
+    if (toSave) chooseLocation(toSave.point, toSave.how);
+    onDone();
+  };
+
+  const forget = () => {
+    forgetLocation();
     onDone();
   };
 
@@ -127,6 +135,7 @@ function ChooserBody({ onDone }: { onDone: () => void }) {
         </div>
         <LazyLocationPicker
           value={point}
+          openViewKm={openViewKm}
           onChange={(next, how) => {
             setPoint(next);
             setOrigin(how);
@@ -139,10 +148,23 @@ function ChooserBody({ onDone }: { onDone: () => void }) {
             street to see exactly who delivers to you.
           </p>
         )}
+        {origin.kind === 'moved' && isWideView(origin.viewKm) && (
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Zoom in to your street to pin it exactly. From this far out the pin only marks your area.
+          </p>
+        )}
+        {mustMove && (
+          <p className="text-xs text-muted-foreground">Move the map to your street, or pick your city, then save.</p>
+        )}
       </div>
-      <DialogFooter>
+      <DialogFooter className="gap-2 sm:gap-0">
+        {saved && (
+          <Button variant="ghost" className="sm:mr-auto" onClick={forget}>
+            Forget my location
+          </Button>
+        )}
         <Button variant="outline" onClick={onDone}>Cancel</Button>
-        <Button disabled={!point} onClick={save}>
+        <Button disabled={!point || mustMove} onClick={save}>
           Use this location
         </Button>
       </DialogFooter>
