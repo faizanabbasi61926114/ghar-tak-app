@@ -1150,6 +1150,7 @@ components:
           enum: [store, service, restaurant]
         description:
           type: string
+          maxLength: 2000
         address:
           type: string
           maxLength: 500
@@ -1197,6 +1198,7 @@ components:
           maxLength: 255
         description:
           type: string
+          maxLength: 2000
         address:
           type: string
           maxLength: 500
@@ -1219,8 +1221,10 @@ components:
           $ref: "#/components/schemas/Longitude"
         avatarUrl:
           type: string
+          maxLength: 2048
         coverUrl:
           type: string
+          maxLength: 2048
         category:
           type: string
           maxLength: 100

@@ -122,6 +122,8 @@ export const ListProvidersResponse = zod.array(ListProvidersResponseItem)
  */
 export const createProviderBodyNameMax = 255;
 
+export const createProviderBodyDescriptionMax = 2000;
+
 export const createProviderBodyAddressMax = 500;
 
 export const createProviderBodyPhoneMax = 50;
@@ -146,7 +148,7 @@ export const createProviderBodyLngMax = 180;
 export const CreateProviderBody = zod.object({
   "name": zod.string().min(1).max(createProviderBodyNameMax),
   "type": zod.enum(['store', 'service', 'restaurant']),
-  "description": zod.string().optional(),
+  "description": zod.string().max(createProviderBodyDescriptionMax).optional(),
   "address": zod.string().max(createProviderBodyAddressMax).optional(),
   "phone": zod.string().max(createProviderBodyPhoneMax).optional(),
   "email": zod.string().max(createProviderBodyEmailMax).optional(),
@@ -193,6 +195,8 @@ export const GetMyProviderResponse = zod.object({
  */
 export const updateMyProviderBodyNameMax = 255;
 
+export const updateMyProviderBodyDescriptionMax = 2000;
+
 export const updateMyProviderBodyAddressMax = 500;
 
 export const updateMyProviderBodyPhoneMax = 50;
@@ -210,13 +214,17 @@ export const updateMyProviderBodyLatMax = 90;
 export const updateMyProviderBodyLngMin = -180;
 export const updateMyProviderBodyLngMax = 180;
 
+export const updateMyProviderBodyAvatarUrlMax = 2048;
+
+export const updateMyProviderBodyCoverUrlMax = 2048;
+
 export const updateMyProviderBodyCategoryMax = 100;
 
 
 
 export const UpdateMyProviderBody = zod.object({
   "name": zod.string().min(1).max(updateMyProviderBodyNameMax).optional(),
-  "description": zod.string().optional(),
+  "description": zod.string().max(updateMyProviderBodyDescriptionMax).optional(),
   "address": zod.string().max(updateMyProviderBodyAddressMax).optional(),
   "phone": zod.string().max(updateMyProviderBodyPhoneMax).optional(),
   "email": zod.string().max(updateMyProviderBodyEmailMax).optional(),
@@ -225,8 +233,8 @@ export const UpdateMyProviderBody = zod.object({
   "deliveryRadiusKm": zod.number().min(updateMyProviderBodyDeliveryRadiusKmMin).max(updateMyProviderBodyDeliveryRadiusKmMax).optional().describe('Delivery or service radius in km. The limits match @workspace\/geo.'),
   "lat": zod.number().min(updateMyProviderBodyLatMin).max(updateMyProviderBodyLatMax).optional(),
   "lng": zod.number().min(updateMyProviderBodyLngMin).max(updateMyProviderBodyLngMax).optional(),
-  "avatarUrl": zod.string().optional(),
-  "coverUrl": zod.string().optional(),
+  "avatarUrl": zod.string().max(updateMyProviderBodyAvatarUrlMax).optional(),
+  "coverUrl": zod.string().max(updateMyProviderBodyCoverUrlMax).optional(),
   "category": zod.string().max(updateMyProviderBodyCategoryMax).optional()
 })
 

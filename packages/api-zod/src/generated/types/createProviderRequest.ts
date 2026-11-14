@@ -17,6 +17,7 @@ export interface CreateProviderRequest {
      */
   name: string;
   type: CreateProviderRequestType;
+  /** @maxLength 2000 */
   description?: string;
   /** @maxLength 500 */
   address?: string;

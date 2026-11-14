@@ -1,8 +1,9 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, providersTable, productsTable, servicesTable, ordersTable, reviewsTable } from "@workspace/db";
 import { eq, and, ilike, or, count, avg, inArray, isNotNull, sql } from "drizzle-orm";
+import { z } from "zod";
 import { CreateProviderBody, ListProvidersQueryParams, UpdateMyProviderBody } from "@workspace/api-zod";
-import { DEFAULT_DELIVERY_RADIUS_KM, EARTH_RADIUS_KM, type Coords } from "@workspace/geo";
+import { DEFAULT_DELIVERY_RADIUS_KM, EARTH_RADIUS_KM, MAX_DELIVERY_RADIUS_KM, type Coords } from "@workspace/geo";
 import { parseBody } from "../lib/validation";
 import { requireAuth } from "./auth";
 import { categoryMatchTerms } from "./categories";
@@ -24,6 +25,14 @@ function locationFields(
     res.status(400).json({
       error: "Invalid request",
       fields: [{ field: missing, message: "Send lat and lng together" }],
+    });
+    return undefined;
+  }
+  // Exactly 0,0 is what a phone or browser sends when it has no real reading.
+  if (body.lat === 0 && body.lng === 0) {
+    res.status(400).json({
+      error: "Invalid request",
+      fields: [{ field: "lat", message: "Pick your shop's place on the map" }],
     });
     return undefined;
   }
@@ -62,24 +71,72 @@ function distanceFrom(point: Coords) {
   const lng = sql`${providersTable.lng}::float8`;
   const fromLat = sql`${point.lat}::float8`;
   const fromLng = sql`${point.lng}::float8`;
-  return sql<number>`2 * ${EARTH_RADIUS_KM}::float8 * asin(least(1, sqrt(
+  // greatest(0, …): rounding can leave a tiny negative number, which sqrt refuses.
+  return sql<number>`2 * ${EARTH_RADIUS_KM}::float8 * asin(least(1, sqrt(greatest(0,
     power(sin(radians(${lat} - ${fromLat}) / 2), 2)
     + cos(radians(${fromLat})) * cos(radians(${lat})) * power(sin(radians(${lng} - ${fromLng}) / 2), 2)
-  )))`.mapWith(Number);
+  ))))`.mapWith(Number);
 }
+
+const DEGREES_PER_RADIAN = 180 / Math.PI;
+// Rounding slack, so a shop exactly on the box's edge is never missed (about 0.1 m).
+const BOX_SLACK_DEGREES = 1e-6;
+
+/**
+ * A box that holds every point within MAX_DELIVERY_RADIUS_KM of `point`: no shop can reach
+ * further (a check constraint keeps radii in range), so shops outside it can be skipped by
+ * the lat/lng index instead of being measured one by one.
+ */
+function reachBox(point: Coords) {
+  const angle = MAX_DELIVERY_RADIUS_KM / EARTH_RADIUS_KM;
+  const latSpan = angle * DEGREES_PER_RADIAN + BOX_SLACK_DEGREES;
+  const conditions = [sql`${providersTable.lat} BETWEEN ${point.lat - latSpan} AND ${point.lat + latSpan}`];
+  // The widest longitude on a circle of `angle` around a point at this latitude. When the
+  // circle reaches a pole every longitude is inside, and across the date line the band wraps:
+  // then only the latitude band is used.
+  const ratio = Math.sin(angle) / Math.cos(point.lat / DEGREES_PER_RADIAN);
+  if (ratio < 1) {
+    const lngSpan = Math.asin(ratio) * DEGREES_PER_RADIAN + BOX_SLACK_DEGREES;
+    if (point.lng - lngSpan >= -180 && point.lng + lngSpan <= 180) {
+      conditions.push(sql`${providersTable.lng} BETWEEN ${point.lng - lngSpan} AND ${point.lng + lngSpan}`);
+    }
+  }
+  return conditions;
+}
+
+// The list's filters come straight from the URL. A NUL byte would make Postgres fail (a 500),
+// and a repeated ?type= or ?q= arrives as an array.
+const filterText = z
+  .string()
+  .trim()
+  .max(100)
+  .refine((value) => !value.includes("\0"), "Invalid characters");
+const ListFilters = z.object({
+  type: z.enum(["store", "service", "restaurant"]).optional(),
+  q: filterText.optional(),
+  // A repeated ?category= arrives as an array; match any of the values.
+  category: z.union([filterText, z.array(filterText).max(10)]).optional(),
+});
 
 // GET /api/providers
 router.get("/providers", async (req: Request, res: Response) => {
   const point = customerPoint(req, res);
   if (point === undefined) return;
+  const filters = ListFilters.safeParse({ type: req.query.type, q: req.query.q, category: req.query.category });
+  if (!filters.success) {
+    res.status(400).json({
+      error: "Invalid request",
+      fields: filters.error.issues.map((issue) => ({ field: issue.path.join("."), message: issue.message })),
+    });
+    return;
+  }
 
   try {
-    const { type, q } = req.query as Record<string, string>;
+    const { type, q } = filters.data;
 
     const conditions = [];
     if (type) conditions.push(eq(providersTable.type, type));
-    // A repeated ?category= arrives as an array; match any of the values.
-    const categories = [req.query.category].flat().filter((c): c is string => typeof c === "string" && c.trim() !== "");
+    const categories = [filters.data.category ?? []].flat().filter((c) => c !== "");
     if (categories.length > 0) {
       conditions.push(inArray(sql`lower(trim(${providersTable.category}))`, categories.flatMap(categoryMatchTerms)));
     }
@@ -103,6 +160,7 @@ router.get("/providers", async (req: Request, res: Response) => {
             ...conditions,
             isNotNull(providersTable.lat),
             isNotNull(providersTable.lng),
+            ...reachBox(point),
             sql`${distance} <= coalesce(${providersTable.deliveryRadiusKm}::float8, ${DEFAULT_DELIVERY_RADIUS_KM}::float8)`,
           ),
         )

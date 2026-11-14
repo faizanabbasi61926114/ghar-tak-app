@@ -139,6 +139,7 @@ export interface CreateProviderRequest {
      */
   name: string;
   type: CreateProviderRequestType;
+  /** @maxLength 2000 */
   description?: string;
   /** @maxLength 500 */
   address?: string;
@@ -161,6 +162,7 @@ export interface UpdateProviderRequest {
      * @maxLength 255
      */
   name?: string;
+  /** @maxLength 2000 */
   description?: string;
   /** @maxLength 500 */
   address?: string;
@@ -174,7 +176,9 @@ export interface UpdateProviderRequest {
   deliveryRadiusKm?: DeliveryRadiusKm;
   lat?: Latitude;
   lng?: Longitude;
+  /** @maxLength 2048 */
   avatarUrl?: string;
+  /** @maxLength 2048 */
   coverUrl?: string;
   /** @maxLength 100 */
   category?: string;
