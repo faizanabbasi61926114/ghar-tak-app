@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Ghar Tak — 2×5 ft Panaflex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Nastaliq+Urdu:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --navy-0: #04070f;
+    --navy-1: #081226;
+    --ink: #f6f8ff;
+    --muted: #9aa8c7;
+    --orange: #ff8a00;
+    --amber: #ffb020;
+    --deep-orange: #f45400;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 1200px; height: 3000px; background: var(--navy-0); }
+
+  body {
+    font-family: "Manrope", "Segoe UI", sans-serif;
+    color: var(--ink);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .stage {
+    position: relative; width: 1200px; height: 3000px; overflow: hidden;
+    display: flex; flex-direction: column;
+    background:
+      radial-gradient(1100px 900px at 88% -8%, rgba(255, 138, 0, 0.22), transparent 62%),
+      radial-gradient(900px 900px at -12% 38%, rgba(255, 176, 32, 0.10), transparent 60%),
+      linear-gradient(168deg, var(--navy-1) 0%, var(--navy-0) 46%, #060c1c 78%, #05080f 100%);
+  }
+
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 84px 84px;
+    -webkit-mask-image: radial-gradient(120% 80% at 50% 20%, #000 0%, transparent 78%);
+    mask-image: radial-gradient(120% 80% at 50% 20%, #000 0%, transparent 78%);
+  }
+
+  .orb { position: absolute; border-radius: 50%; filter: blur(90px); }
+  .orb-a { width: 760px; height: 760px; right: -260px; top: 240px; background: rgba(255,138,0,0.20); }
+  .orb-b { width: 620px; height: 620px; left: -260px; top: 1250px; background: rgba(255,94,0,0.14); }
+
+  .ring { position: absolute; border-radius: 50%; border: 2px solid rgba(255,255,255,0.07); }
+  .ring-1 { width: 900px; height: 900px; right: -330px; top: 160px; }
+  .ring-2 { width: 1240px; height: 1240px; right: -500px; top: 10px; border-color: rgba(255,138,0,0.10); }
+
+  /* header */
+  header {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; gap: 30px;
+    padding: 88px 96px 0 96px;
+  }
+
+  .logo-tile {
+    width: 168px; height: 168px; border-radius: 44px;
+    background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
+    border: 2px solid rgba(255,255,255,0.14);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.18);
+    display: grid; place-items: center;
+    backdrop-filter: blur(18px);
+  }
+  .logo-tile img { width: 126px; height: 112px; object-fit: contain; }
+
+  .brand-block { display: flex; flex-direction: column; }
+  .brand-name { font-size: 82px; font-weight: 800; letter-spacing: 1px; line-height: 1; color: #fff; }
+  .brand-name em { font-style: normal; color: var(--amber); }
+  .brand-urdu {
+    font-family: "Noto Nastaliq Urdu", serif;
+    font-size: 50px; line-height: 1.9; color: #ffc35c; margin-top: -6px;
+  }
+
+  /* hero */
+  .hero { position: relative; z-index: 2; padding: 78px 96px 0 96px; }
+
+  .kicker {
+    display: inline-block; font-size: 26px; font-weight: 800; letter-spacing: 8px;
+    color: #ffb648; text-transform: uppercase; margin-bottom: 30px;
+  }
+
+  h1 { font-size: 118px; line-height: 1.02; font-weight: 800; letter-spacing: -3px; color: #fff; }
+  h1 .line-2 {
+    background: linear-gradient(96deg, #ffd27a 0%, #ff9d1c 46%, #ff6a00 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  .hero-urdu {
+    font-family: "Noto Nastaliq Urdu", serif;
+    font-size: 58px; line-height: 1.9; color: #e7edf9; margin-top: 24px;
+  }
+
+  .hero-sub {
+    margin-top: 6px; font-size: 36px; line-height: 1.5; font-weight: 600;
+    color: var(--muted); max-width: 940px;
+  }
+  .hero-sub b { color: #fff; font-weight: 700; }
+
+  /* phone mockup */
+  .device-wrap {
+    position: relative; z-index: 2;
+    display: flex; justify-content: center;
+    padding-top: 76px;
+  }
+
+  .phone-glow {
+    position: absolute; width: 700px; height: 700px; top: 120px; left: 50%;
+    transform: translateX(-50%); border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,138,0,0.28), rgba(255,106,0,0.06) 55%, transparent 72%);
+    filter: blur(24px);
+  }
+
+  .phone {
+    position: relative; width: 566px; height: 900px; border-radius: 64px;
+    background: #070d1c;
+    border: 3px solid rgba(255,255,255,0.16);
+    box-shadow: 0 60px 120px rgba(0,0,0,0.55), inset 0 0 0 10px #0b1324;
+    padding: 26px;
+  }
+
+  .screen {
+    width: 100%; height: 100%; border-radius: 44px; padding: 30px 26px;
+    background: linear-gradient(180deg, #0b1526 0%, #08101f 60%, #070d19 100%);
+    overflow: hidden; display: flex; flex-direction: column; gap: 20px;
+  }
+
+  .status-row { display: flex; justify-content: space-between; align-items: center; font-size: 19px; font-weight: 700; color: #8fa0c4; }
+  .status-row span:last-child { letter-spacing: 3px; font-size: 13px; }
+
+  .app-head { display: flex; align-items: center; justify-content: space-between; }
+  .app-brand { display: flex; align-items: center; gap: 12px; font-size: 25px; font-weight: 800; }
+  .app-brand img { width: 34px; height: 32px; object-fit: contain; }
+  .loc-pill {
+    font-size: 17px; font-weight: 700; color: #ffc35c; padding: 8px 14px;
+    border-radius: 999px; background: rgba(255,176,32,0.12); border: 1px solid rgba(255,176,32,0.3);
+  }
+
+  .search {
+    display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 20px;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.09);
+    font-size: 20px; font-weight: 600; color: #8fa0c4;
+  }
+  .search svg { width: 22px; height: 22px; stroke: #8fa0c4; fill: none; stroke-width: 2; stroke-linecap: round; }
+
+  .cat-row { display: flex; gap: 10px; }
+  .cat {
+    flex: 1; text-align: center; padding: 12px 4px; border-radius: 16px; font-size: 16px; font-weight: 700;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: #c3cee4;
+  }
+  .cat.active { background: linear-gradient(140deg, #ff9d1c, #f45400); color: #1a1206; border-color: transparent; }
+
+  .sec-head { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; }
+  .sec-head b { font-size: 24px; font-weight: 800; }
+  .sec-head span { font-size: 16px; font-weight: 700; color: #ffb648; }
+
+  .store {
+    display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 22px;
+    background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.08);
+  }
+  .thumb { width: 66px; height: 66px; border-radius: 18px; flex: 0 0 66px;
+    background: linear-gradient(140deg, #1d2b48, #0e1830); border: 1px solid rgba(255,255,255,0.09);
+    display: grid; place-items: center; font-size: 30px; }
+  .store-info b { display: block; font-size: 20px; font-weight: 800; }
+  .store-info span { font-size: 15px; font-weight: 600; color: #8fa0c4; }
+  .store-arrow { margin-left: auto; font-size: 22px; color: #ffb648; font-weight: 800; }
+
+  .track {
+    margin-top: auto; padding: 22px; border-radius: 24px;
+    background: linear-gradient(150deg, rgba(255,157,28,0.18), rgba(255,106,0,0.07));
+    border: 1px solid rgba(255,166,60,0.35);
+  }
+  .track-top { display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 800; }
+  .track-top span { display: flex; align-items: center; gap: 8px; color: #ffc35c; font-size: 15px; font-weight: 700; }
+  .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #38d47a; box-shadow: 0 0 12px #38d47a; }
+  .track-sub { margin-top: 6px; font-size: 15px; font-weight: 600; color: #b9c6e0; }
+  .bar { margin-top: 14px; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; }
+  .bar i { display: block; width: 68%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #ffb020, #f45400); }
+
+  .nav { display: flex; justify-content: space-around; padding-top: 4px; }
+  .nav i { width: 34px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.16); }
+  .nav i.on { background: #ff9d1c; width: 52px; }
+
+  .float-chip {
+    position: absolute; z-index: 3; display: flex; align-items: center; gap: 12px;
+    padding: 18px 24px; border-radius: 999px; font-size: 21px; font-weight: 800;
+    background: rgba(10,18,34,0.72); border: 1px solid rgba(255,255,255,0.16);
+    backdrop-filter: blur(16px); box-shadow: 0 24px 50px rgba(0,0,0,0.45);
+  }
+  .float-chip svg { width: 24px; height: 24px; stroke: #ffb648; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .chip-left { left: 66px; bottom: 250px; }
+  .chip-right { right: 52px; top: 210px; }
+
+  /* features */
+  .cards {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column; gap: 24px;
+    padding: 56px 96px 0 96px;
+  }
+
+  .card {
+    display: flex; align-items: center; gap: 30px;
+    padding: 30px 38px; border-radius: 36px;
+    background: linear-gradient(150deg, rgba(255,255,255,0.085), rgba(255,255,255,0.028));
+    border: 1.5px solid rgba(255,255,255,0.12);
+    box-shadow: 0 26px 60px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.16);
+    backdrop-filter: blur(22px);
+  }
+
+  .icon {
+    flex: 0 0 100px; width: 100px; height: 100px; border-radius: 28px;
+    background: linear-gradient(150deg, rgba(255,157,28,0.24), rgba(255,106,0,0.10));
+    border: 1.5px solid rgba(255,166,60,0.42);
+    display: grid; place-items: center;
+  }
+  .icon svg { width: 50px; height: 50px; stroke: #ffb648; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+  .card h3 { font-size: 37px; font-weight: 800; letter-spacing: -0.5px; }
+  .card p { margin-top: 6px; font-size: 27px; font-weight: 600; color: var(--muted); }
+
+  /* CTA */
+  .cta {
+    position: relative; z-index: 2; margin-top: auto;
+    padding: 42px 96px 44px 96px;
+    background: linear-gradient(120deg, #ffb020 0%, #ff8a00 52%, #f45400 100%);
+    border-top-left-radius: 60px; border-top-right-radius: 60px;
+  }
+  .cta::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: radial-gradient(700px 240px at 18% 0%, rgba(255,255,255,0.32), transparent 60%);
+  }
+
+  .cta-title {
+    position: relative; z-index: 1;
+    font-size: 68px; font-weight: 800; letter-spacing: -2px; line-height: 1.05; color: #131c2e;
+  }
+  .cta-title span { color: #fff; }
+
+  .cta-row { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; margin-top: 24px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 18px;
+    padding: 22px 34px; border-radius: 999px;
+    background: #0b1526; color: #fff; font-size: 28px; font-weight: 700;
+    box-shadow: 0 20px 40px rgba(11,21,38,0.35); white-space: nowrap;
+  }
+  .pill svg { width: 34px; height: 34px; stroke: #ffb648; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .cta-note { font-size: 26px; font-weight: 800; color: #2a1a08; text-align: right; line-height: 1.35; }
+  .cta-note small { display: block; font-size: 21px; font-weight: 700; color: rgba(19,28,46,0.66); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="grid"></div>
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
+  <div class="ring ring-1"></div>
+  <div class="ring ring-2"></div>
+
+  <header>
+    <div class="logo-tile">
+      <img src="../../apps/ghar-tak/public/logo-dark.png" alt="Ghar Tak logo" />
+    </div>
+    <div class="brand-block">
+      <div class="brand-name">GHAR <em>TAK</em></div>
+      <div class="brand-urdu">گھر تک</div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="kicker">Neighbourhood marketplace</div>
+    <h1>Your whole<br /><span class="line-2">neighbourhood.</span></h1>
+    <p class="hero-urdu">آپ کے محلے کی اپنی مارکیٹ</p>
+    <p class="hero-sub">Groceries, food, pharmacy and <b>home services</b> — from the shops and pros right around you.</p>
+  </section>
+
+  <div class="device-wrap">
+    <div class="phone-glow"></div>
+
+    <div class="float-chip chip-right">
+      <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+      Verified pros
+    </div>
+    <div class="float-chip chip-left">
+      <svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+      Near you
+    </div>
+
+    <div class="phone">
+      <div class="screen">
+        <div class="status-row"><span>9:41</span><span>● ● ●</span></div>
+
+        <div class="app-head">
+          <div class="app-brand">
+            <img src="../../apps/ghar-tak/public/logo-dark.png" alt="" />
+            Ghar Tak
+          </div>
+          <div class="loc-pill">Gulberg</div>
+        </div>
+
+        <div class="search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          Search shops, services...
+        </div>
+
+        <div class="cat-row">
+          <div class="cat active">Kirana</div>
+          <div class="cat">Food</div>
+          <div class="cat">Pharmacy</div>
+          <div class="cat">AC repair</div>
+        </div>
+
+        <div class="sec-head"><b>Near you</b><span>See all</span></div>
+
+        <div class="store">
+          <div class="thumb">🛒</div>
+          <div class="store-info"><b>Al-Madina Kirana</b><span>1.2 km · 15 min delivery</span></div>
+          <div class="store-arrow">›</div>
+        </div>
+
+        <div class="store">
+          <div class="thumb">🥐</div>
+          <div class="store-info"><b>Fresh Bakers</b><span>0.8 km · 12 min delivery</span></div>
+          <div class="store-arrow">›</div>
+        </div>
+
+        <div class="track">
+          <div class="track-top">
+            Order #GT-2481
+            <span><i class="live-dot"></i>On the way</span>
+          </div>
+          <div class="track-sub">Arriving in 6 minutes · Rider nearby</div>
+          <div class="bar"><i></i></div>
+        </div>
+
+        <div class="nav"><i class="on"></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+  </div>
+
+  <section class="cards">
+    <div class="card">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v8h14v-8"/><path d="M10 20v-5h4v5"/></svg>
+      </div>
+      <div>
+        <h3>Kirana, food &amp; pharmacy</h3>
+        <p>Order from shops within minutes of you</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M13 2L4.5 13.5H10l-1 8.5 8.5-11.5H12l1-8.5z"/></svg>
+      </div>
+      <div>
+        <h3>AC, electrician &amp; plumber</h3>
+        <p>Verified neighbourhood pros, upfront prices</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17.5" cy="18" r="1.8"/></svg>
+      </div>
+      <div>
+        <h3>Live tracking &amp; support</h3>
+        <p>Follow every order from shop to doorstep</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="cta">
+    <div class="cta-title">Download the <span>Ghar Tak</span> app</div>
+    <div class="cta-row">
+      <div class="pill">
+        <svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
+        Shop local · Book pros · Track live
+      </div>
+      <div class="cta-note">
+        Apke ghar tak
+        <small>Every order, right to your doorstep</small>
+      </div>
+    </div>
+  </footer>
+</div>
+</body>
+</html>
