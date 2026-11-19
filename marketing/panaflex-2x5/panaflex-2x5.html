@@ -12,9 +12,7 @@
     --navy-1: #081226;
     --ink: #f6f8ff;
     --muted: #9aa8c7;
-    --orange: #ff8a00;
     --amber: #ffb020;
-    --deep-orange: #f45400;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -48,44 +46,52 @@
   }
 
   .orb { position: absolute; border-radius: 50%; filter: blur(90px); }
-  .orb-a { width: 760px; height: 760px; right: -260px; top: 240px; background: rgba(255,138,0,0.20); }
-  .orb-b { width: 620px; height: 620px; left: -260px; top: 1250px; background: rgba(255,94,0,0.14); }
+  .orb-a { width: 760px; height: 760px; right: -260px; top: 240px; background: rgba(255,138,0,0.18); }
+  .orb-b { width: 640px; height: 640px; left: -280px; top: 1150px; background: rgba(255,94,0,0.13); }
 
   .ring { position: absolute; border-radius: 50%; border: 2px solid rgba(255,255,255,0.07); }
-  .ring-1 { width: 900px; height: 900px; right: -330px; top: 160px; }
-  .ring-2 { width: 1240px; height: 1240px; right: -500px; top: 10px; border-color: rgba(255,138,0,0.10); }
+  .ring-1 { width: 900px; height: 900px; right: -330px; top: 150px; }
+  .ring-2 { width: 1240px; height: 1240px; right: -500px; top: 0; border-color: rgba(255,138,0,0.10); }
 
-  /* header */
+  /* ---------- header ---------- */
   header {
     position: relative; z-index: 2;
-    display: flex; align-items: center; gap: 30px;
-    padding: 88px 96px 0 96px;
+    display: flex; align-items: center; gap: 28px;
+    padding: 84px 96px 0 96px;
   }
 
   .logo-tile {
-    width: 168px; height: 168px; border-radius: 44px;
+    width: 150px; height: 150px; border-radius: 40px;
     background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
     border: 2px solid rgba(255,255,255,0.14);
     box-shadow: 0 30px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.18);
     display: grid; place-items: center;
     backdrop-filter: blur(18px);
   }
-  .logo-tile img { width: 126px; height: 112px; object-fit: contain; }
+  .logo-tile img { width: 112px; height: 100px; object-fit: contain; }
 
   .brand-block { display: flex; flex-direction: column; }
-  .brand-name { font-size: 82px; font-weight: 800; letter-spacing: 1px; line-height: 1; color: #fff; }
+  .brand-name { font-size: 76px; font-weight: 800; letter-spacing: 1px; line-height: 1; color: #fff; }
   .brand-name em { font-style: normal; color: var(--amber); }
   .brand-urdu {
     font-family: "Noto Nastaliq Urdu", serif;
-    font-size: 50px; line-height: 1.9; color: #ffc35c; margin-top: -6px;
+    font-size: 46px; line-height: 1.9; color: #ffc35c; margin-top: -8px;
   }
 
-  /* hero */
-  .hero { position: relative; z-index: 2; padding: 72px 96px 0 96px; }
+  .uni-card {
+    margin-left: auto; background: #ffffff; border-radius: 22px;
+    padding: 20px 24px; width: 300px;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+    display: grid; place-items: center;
+  }
+  .uni-card img { width: 242px; height: auto; display: block; }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; z-index: 2; padding: 70px 96px 0 96px; }
 
   .kicker {
-    display: inline-block; font-size: 26px; font-weight: 800; letter-spacing: 8px;
-    color: #ffb648; text-transform: uppercase; margin-bottom: 30px;
+    display: inline-block; font-size: 24px; font-weight: 800; letter-spacing: 8px;
+    color: #ffb648; text-transform: uppercase; margin-bottom: 28px;
   }
 
   h1 { font-size: 118px; line-height: 1.02; font-weight: 800; letter-spacing: -3px; color: #fff; }
@@ -96,194 +102,364 @@
 
   .hero-urdu {
     font-family: "Noto Nastaliq Urdu", serif;
-    font-size: 58px; line-height: 1.9; color: #e7edf9; margin-top: 24px;
+    font-size: 58px; line-height: 1.9; color: #e7edf9; margin-top: 22px;
   }
 
   .hero-sub {
-    margin-top: 6px; font-size: 36px; line-height: 1.5; font-weight: 600;
-    color: var(--muted); max-width: 940px;
+    margin-top: 2px; font-size: 36px; line-height: 1.5; font-weight: 600;
+    color: var(--muted); max-width: 990px;
   }
   .hero-sub b { color: #fff; font-weight: 700; }
 
-  /* phone mockup */
-  .device-wrap {
+  /* ---------- phones ---------- */
+  .phones {
     position: relative; z-index: 2;
-    display: flex; justify-content: center;
-    padding-top: 64px;
+    display: flex; justify-content: center; align-items: flex-start; gap: 24px;
+    padding-top: 70px;
   }
-
-  .phone-glow {
-    position: absolute; width: 700px; height: 700px; top: 120px; left: 50%;
+  .phones::before {
+    content: ""; position: absolute; width: 940px; height: 760px; left: 50%; top: 60px;
     transform: translateX(-50%); border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,138,0,0.28), rgba(255,106,0,0.06) 55%, transparent 72%);
-    filter: blur(24px);
+    background: radial-gradient(circle, rgba(255,138,0,0.24), rgba(255,106,0,0.05) 55%, transparent 72%);
+    filter: blur(26px);
   }
 
   .phone {
-    position: relative; width: 566px; height: 900px; border-radius: 64px;
-    background: #070d1c;
-    border: 3px solid rgba(255,255,255,0.16);
-    box-shadow: 0 60px 120px rgba(0,0,0,0.55), inset 0 0 0 10px #0b1324;
-    padding: 26px;
+    position: relative; width: 306px; height: 700px; border-radius: 40px;
+    background: #070d1c; border: 2.5px solid rgba(255,255,255,0.16);
+    box-shadow: 0 50px 100px rgba(0,0,0,0.55), inset 0 0 0 8px #0b1324;
+    padding: 10px;
+  }
+  .phone.mid {
+    width: 322px; height: 732px; margin-top: -26px;
+    box-shadow: 0 60px 110px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,166,60,0.18), inset 0 0 0 8px #0b1324;
   }
 
   .screen {
-    width: 100%; height: 100%; border-radius: 44px; padding: 30px 26px;
+    height: 100%; border-radius: 33px; padding: 15px 13px;
     background: linear-gradient(180deg, #0b1526 0%, #08101f 60%, #070d19 100%);
-    overflow: hidden; display: flex; flex-direction: column; gap: 20px;
+    display: flex; flex-direction: column; gap: 9px; overflow: hidden;
   }
 
-  .status-row { display: flex; justify-content: space-between; align-items: center; font-size: 19px; font-weight: 700; color: #8fa0c4; }
-  .status-row span:last-child { letter-spacing: 3px; font-size: 13px; }
+  .s-status { display: flex; justify-content: space-between; font-size: 8.5px; font-weight: 700; color: #8fa0c4; }
+  .s-status span:last-child { letter-spacing: 2px; font-size: 6.5px; }
 
-  .app-head { display: flex; align-items: center; justify-content: space-between; }
-  .app-brand { display: flex; align-items: center; gap: 12px; font-size: 25px; font-weight: 800; }
-  .app-brand img { width: 34px; height: 32px; object-fit: contain; }
-  .loc-pill {
-    font-size: 17px; font-weight: 700; color: #ffc35c; padding: 8px 14px;
-    border-radius: 999px; background: rgba(255,176,32,0.12); border: 1px solid rgba(255,176,32,0.3);
+  .s-head { display: flex; align-items: center; justify-content: space-between; }
+  .s-brand { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; }
+  .s-brand img { width: 17px; height: 15px; object-fit: contain; }
+  .s-loc {
+    font-size: 7.5px; font-weight: 700; color: #ffc35c; padding: 4px 8px; border-radius: 999px;
+    background: rgba(255,176,32,0.12); border: 1px solid rgba(255,176,32,0.3);
   }
+  .s-title { font-size: 12px; font-weight: 800; }
+  .s-live { display: flex; align-items: center; gap: 5px; font-size: 7.5px; font-weight: 700; color: #5be08f; }
+  .s-live i { width: 5px; height: 5px; border-radius: 50%; background: #38d47a; box-shadow: 0 0 8px #38d47a; }
 
-  .search {
-    display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 20px;
+  .s-search {
+    display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 12px;
     background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.09);
-    font-size: 20px; font-weight: 600; color: #8fa0c4;
+    font-size: 8.5px; font-weight: 600; color: #8fa0c4;
   }
-  .search svg { width: 22px; height: 22px; stroke: #8fa0c4; fill: none; stroke-width: 2; stroke-linecap: round; }
+  .s-search svg { width: 11px; height: 11px; stroke: #8fa0c4; fill: none; stroke-width: 2; stroke-linecap: round; }
 
-  .cat-row { display: flex; gap: 10px; }
-  .cat {
-    flex: 1; text-align: center; padding: 12px 4px; border-radius: 16px; font-size: 16px; font-weight: 700;
+  .s-cats { display: flex; gap: 5px; }
+  .s-cat {
+    flex: 1; text-align: center; padding: 6px 2px; border-radius: 9px; font-size: 8px; font-weight: 700;
     background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: #c3cee4;
   }
-  .cat.active { background: linear-gradient(140deg, #ff9d1c, #f45400); color: #1a1206; border-color: transparent; }
+  .s-cat.on { background: linear-gradient(140deg, #ff9d1c, #f45400); color: #1a1206; border-color: transparent; }
 
-  .sec-head { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; }
-  .sec-head b { font-size: 24px; font-weight: 800; }
-  .sec-head span { font-size: 16px; font-weight: 700; color: #ffb648; }
+  .s-sec { display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px; }
+  .s-sec b { font-size: 11px; font-weight: 800; }
+  .s-sec span { font-size: 8px; font-weight: 700; color: #ffb648; }
 
-  .store {
-    display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 22px;
+  .s-store {
+    display: flex; align-items: center; gap: 8px; padding: 7px; border-radius: 12px;
     background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.08);
   }
-  .thumb { width: 66px; height: 66px; border-radius: 18px; flex: 0 0 66px;
+  .s-thumb {
+    width: 30px; height: 30px; border-radius: 9px; flex: 0 0 30px;
     background: linear-gradient(140deg, #1d2b48, #0e1830); border: 1px solid rgba(255,255,255,0.09);
-    display: grid; place-items: center; font-size: 30px; }
-  .store-info b { display: block; font-size: 20px; font-weight: 800; }
-  .store-info span { font-size: 15px; font-weight: 600; color: #8fa0c4; }
-  .store-arrow { margin-left: auto; font-size: 22px; color: #ffb648; font-weight: 800; }
-
-  .track {
-    margin-top: auto; padding: 22px; border-radius: 24px;
-    background: linear-gradient(150deg, rgba(255,157,28,0.18), rgba(255,106,0,0.07));
-    border: 1px solid rgba(255,166,60,0.35);
+    display: grid; place-items: center; font-size: 12px;
   }
-  .track-top { display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 800; }
-  .track-top span { display: flex; align-items: center; gap: 8px; color: #ffc35c; font-size: 15px; font-weight: 700; }
-  .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #38d47a; box-shadow: 0 0 12px #38d47a; }
-  .track-sub { margin-top: 6px; font-size: 15px; font-weight: 600; color: #b9c6e0; }
-  .bar { margin-top: 14px; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; }
-  .bar i { display: block; width: 68%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #ffb020, #f45400); }
+  .s-store b { display: block; font-size: 9.5px; font-weight: 800; }
+  .s-store span { font-size: 7.5px; font-weight: 600; color: #8fa0c4; }
+  .s-arrow { margin-left: auto; font-size: 10px; font-weight: 800; color: #ffb648; }
 
-  .nav { display: flex; justify-content: space-around; padding-top: 4px; }
-  .nav i { width: 34px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.16); }
-  .nav i.on { background: #ff9d1c; width: 52px; }
-
-  .float-chip {
-    position: absolute; z-index: 3; display: flex; align-items: center; gap: 12px;
-    padding: 18px 24px; border-radius: 999px; font-size: 21px; font-weight: 800;
-    background: rgba(10,18,34,0.72); border: 1px solid rgba(255,255,255,0.16);
-    backdrop-filter: blur(16px); box-shadow: 0 24px 50px rgba(0,0,0,0.45);
+  .s-grid { display: flex; gap: 6px; }
+  .s-prod {
+    flex: 1; padding: 6px; border-radius: 11px;
+    background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.08);
   }
-  .float-chip svg { width: 24px; height: 24px; stroke: #ffb648; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-  .chip-left { left: 66px; bottom: 250px; }
-  .chip-right { right: 52px; top: 210px; }
+  .s-prod-img {
+    height: 40px; border-radius: 8px; margin-bottom: 5px;
+    background: linear-gradient(140deg, #1d2b48, #0e1830); border: 1px solid rgba(255,255,255,0.07);
+    display: grid; place-items: center; font-size: 16px;
+  }
+  .s-prod b { display: block; font-size: 8.5px; font-weight: 800; }
+  .s-prod span { font-size: 8px; font-weight: 700; color: #ffb648; }
 
-  /* features */
-  .cards {
+  .s-addr {
+    display: flex; align-items: center; gap: 7px; padding: 8px 9px; border-radius: 11px;
+    background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.08);
+    font-size: 9px;
+  }
+  .s-addr b { display: block; font-size: 8.5px; font-weight: 800; }
+  .s-addr span { display: block; font-size: 7.5px; font-weight: 600; color: #8fa0c4; }
+  .s-addr em { font-style: normal; margin-left: auto; font-size: 7.5px; font-weight: 800; color: #ffb648; }
+
+  .s-inc { display: flex; align-items: center; gap: 7px; font-size: 8px; font-weight: 600; color: #b9c6e0; }
+  .s-inc i {
+    width: 13px; height: 13px; flex: 0 0 13px; border-radius: 50%; display: grid; place-items: center;
+    font-style: normal; font-size: 7px; font-weight: 800; color: #5be08f;
+    background: rgba(56,212,122,0.14); border: 1px solid rgba(56,212,122,0.35);
+  }
+
+  .s-sum { padding: 8px 10px; border-radius: 11px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.08); }
+  .s-line { display: flex; justify-content: space-between; font-size: 8px; font-weight: 600; color: #9fadc9; padding: 3px 0; }
+  .s-line b { color: #e6edfa; font-size: 8.5px; }
+  .s-line.total { border-top: 1px solid rgba(255,255,255,0.1); margin-top: 3px; padding-top: 5px; color: #fff; font-weight: 800; }
+
+  .s-promo {
+    padding: 11px 12px; border-radius: 12px;
+    background: linear-gradient(135deg, rgba(255,157,28,0.2), rgba(255,106,0,0.06));
+    border: 1px solid rgba(255,166,60,0.32);
+  }
+  .s-promo b { display: block; font-size: 9.5px; font-weight: 800; color: #ffd27a; }
+  .s-promo span { font-size: 7.5px; font-weight: 600; color: #c9d4ea; }
+
+  .s-reorder, .s-support {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 11px;
+    background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.08); font-size: 9px;
+  }
+  .s-reorder b, .s-support b { display: block; font-size: 8.5px; font-weight: 800; }
+  .s-reorder span, .s-support span { display: block; font-size: 7.5px; font-weight: 600; color: #8fa0c4; }
+  .s-reorder em, .s-support em { font-style: normal; margin-left: auto; font-size: 8px; font-weight: 800; color: #ffb648; }
+
+  .s-review {
+    padding: 9px 10px; border-radius: 11px;
+    background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.08);
+  }
+  .s-stars { font-size: 8px; letter-spacing: 2px; color: #ffb648; }
+  .s-review p { margin: 4px 0 3px; font-size: 8.5px; font-weight: 600; line-height: 1.4; color: #dfe7f6; }
+  .s-review span { font-size: 7px; font-weight: 600; color: #8fa0c4; }
+
+  .s-nav { display: flex; justify-content: space-around; margin-top: auto; padding-top: 4px; }
+  .s-nav i { width: 18px; height: 4px; border-radius: 999px; background: rgba(255,255,255,0.16); }
+  .s-nav i.on { width: 28px; background: #ff9d1c; }
+
+  /* screen 2 */
+  .tech {
+    display: flex; align-items: center; gap: 8px; padding: 9px; border-radius: 13px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.09);
+  }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%; flex: 0 0 36px;
+    background: linear-gradient(140deg, #ffb020, #f45400); color: #2a1a08;
+    display: grid; place-items: center; font-size: 11px; font-weight: 800;
+  }
+  .tech-info b { display: block; font-size: 9.5px; font-weight: 800; }
+  .tech-info span { display: block; font-size: 7.5px; font-weight: 600; color: #8fa0c4; }
+  .verified {
+    margin-left: auto; font-size: 6.5px; font-weight: 800; padding: 3px 6px; border-radius: 999px;
+    background: rgba(56,212,122,0.14); border: 1px solid rgba(56,212,122,0.35); color: #5be08f;
+  }
+
+  .s-label { font-size: 7.5px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: #8fa0c4; margin-top: 2px; }
+  .s-chips { display: flex; gap: 5px; }
+  .s-chip {
+    padding: 5px 8px; border-radius: 8px; font-size: 7.5px; font-weight: 700;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: #c3cee4;
+  }
+  .s-chip.on { background: rgba(255,157,28,0.18); border-color: rgba(255,166,60,0.45); color: #ffc35c; }
+
+  .slot {
+    display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 11px;
+    background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.08);
+    font-size: 8px; font-weight: 600; color: #c3cee4;
+  }
+  .slot b { color: #fff; font-size: 8.5px; }
+  .slot em { font-style: normal; color: #5be08f; font-size: 7.5px; font-weight: 800; }
+
+  .price-row {
+    margin-top: auto; display: flex; align-items: center; justify-content: space-between;
+    padding: 10px; border-radius: 13px;
+    background: linear-gradient(150deg, rgba(255,157,28,0.16), rgba(255,106,0,0.06));
+    border: 1px solid rgba(255,166,60,0.32);
+  }
+  .price b { font-size: 13px; }
+  .price span { display: block; font-size: 7px; font-weight: 600; color: #b9c6e0; }
+  .book-btn {
+    padding: 8px 13px; border-radius: 999px; font-size: 9px; font-weight: 800; color: #1a1206;
+    background: linear-gradient(120deg, #ffb020, #f45400); box-shadow: 0 8px 18px rgba(244,84,0,0.35);
+  }
+
+  /* screen 3 */
+  .s-map {
+    position: relative; height: 196px; border-radius: 13px; overflow: hidden;
+    background: radial-gradient(circle at 32% 62%, #132340, #0a1428 70%);
+    border: 1px solid rgba(255,255,255,0.09);
+  }
+  .road { position: absolute; background: rgba(255,255,255,0.08); border-radius: 999px; }
+  .road.r1 { width: 240px; height: 6px; left: -20px; top: 52px; transform: rotate(-9deg); }
+  .road.r2 { width: 6px; height: 190px; left: 96px; top: -20px; transform: rotate(14deg); }
+  .road.r3 { width: 200px; height: 5px; right: -30px; top: 106px; transform: rotate(12deg); }
+  .pin {
+    position: absolute; width: 16px; height: 16px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 7px;
+  }
+  .pin.home { left: 44px; top: 92px; background: #38d47a; box-shadow: 0 0 0 5px rgba(56,212,122,0.18); }
+  .pin.rider { right: 52px; top: 36px; background: #ff9d1c; box-shadow: 0 0 0 5px rgba(255,157,28,0.2); }
+  .route {
+    position: absolute; left: 56px; top: 52px; width: 150px; height: 3px;
+    border-radius: 999px; transform: rotate(24deg); transform-origin: left center;
+    background: repeating-linear-gradient(90deg, #ffb648 0 9px, transparent 9px 17px);
+  }
+
+  .steps { display: flex; flex-direction: column; gap: 7px; margin-top: 2px; }
+  .step { display: flex; align-items: center; gap: 7px; font-size: 8px; font-weight: 600; color: #7d8cab; }
+  .step i { width: 11px; height: 11px; border-radius: 50%; border: 2px solid #33415e; flex: 0 0 11px; }
+  .step.done i { background: #38d47a; border-color: #38d47a; }
+  .step.now { color: #e6edfa; }
+  .step.now i { background: #ff9d1c; border-color: #ff9d1c; box-shadow: 0 0 10px rgba(255,157,28,0.7); }
+  .step b { color: #e6edfa; font-weight: 800; }
+
+  .rider {
+    margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 12px;
+    background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.08);
+  }
+  .rider .avatar { width: 28px; height: 28px; flex: 0 0 28px; font-size: 9px; }
+  .rider b { display: block; font-size: 8.5px; font-weight: 800; }
+  .rider span { display: block; font-size: 7px; font-weight: 600; color: #8fa0c4; }
+  .r-actions { margin-left: auto; display: flex; gap: 5px; }
+  .r-btn {
+    width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+    background: rgba(255,157,28,0.16); border: 1px solid rgba(255,166,60,0.4);
+  }
+  .r-btn svg { width: 10px; height: 10px; stroke: #ffc35c; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- aim ---------- */
+  .aim {
     position: relative; z-index: 2;
-    display: flex; flex-direction: column; gap: 24px;
-    padding: 48px 96px 0 96px;
-  }
-
-  .card {
-    display: flex; align-items: center; gap: 30px;
-    padding: 28px 38px; border-radius: 36px;
-    background: linear-gradient(150deg, rgba(255,255,255,0.085), rgba(255,255,255,0.028));
+    display: flex; align-items: flex-start; gap: 20px;
+    margin: 56px 96px 0 96px; padding: 30px 34px;
+    border-radius: 24px;
+    background: linear-gradient(150deg, rgba(255,255,255,0.075), rgba(255,255,255,0.02));
     border: 1.5px solid rgba(255,255,255,0.12);
-    box-shadow: 0 26px 60px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.16);
-    backdrop-filter: blur(22px);
-  }
-
-  .icon {
-    flex: 0 0 100px; width: 100px; height: 100px; border-radius: 28px;
-    background: linear-gradient(150deg, rgba(255,157,28,0.24), rgba(255,106,0,0.10));
-    border: 1.5px solid rgba(255,166,60,0.42);
-    display: grid; place-items: center;
-  }
-  .icon svg { width: 50px; height: 50px; stroke: #ffb648; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-
-  .card h3 { font-size: 37px; font-weight: 800; letter-spacing: -0.5px; }
-  .card p { margin-top: 6px; font-size: 27px; font-weight: 600; color: var(--muted); }
-
-  /* credits */
-  .credits {
-    position: relative; z-index: 2;
-    display: flex; align-items: stretch; gap: 38px;
-    margin: 34px 96px 0 96px; padding: 28px 40px 28px 46px;
-    border-radius: 32px;
-    background: linear-gradient(150deg, rgba(255,255,255,0.08), rgba(255,255,255,0.025));
-    border: 1.5px solid rgba(255,255,255,0.12);
-    box-shadow: 0 24px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.14);
     backdrop-filter: blur(20px);
   }
-  .credits::before {
-    content: ""; position: absolute; left: 0; top: 26px; bottom: 26px; width: 6px;
+  .aim::before {
+    content: ""; position: absolute; left: 0; top: 20px; bottom: 20px; width: 6px;
     border-radius: 999px; background: linear-gradient(180deg, #ffb020, #f45400);
   }
+  .aim-label { flex: 0 0 auto; padding-top: 5px; font-size: 14px; font-weight: 800; letter-spacing: 3px; color: #ffb648; text-transform: uppercase; }
+  .aim-text { font-size: 26px; font-weight: 600; line-height: 1.5; color: #cdd8ec; }
+  .aim-text b { color: #fff; }
 
-  .cred-sup { flex: 0 0 318px; padding-right: 38px; border-right: 1px solid rgba(255,255,255,0.12); }
-  .cred-label {
-    font-size: 16px; font-weight: 800; letter-spacing: 3.5px; text-transform: uppercase;
-    color: #ffb648;
+  /* ---------- features ---------- */
+  .features {
+    position: relative; z-index: 2;
+    display: grid; grid-template-columns: 1fr 1fr; column-gap: 44px; row-gap: 25px;
+    margin: 40px 96px 0 96px; padding: 42px 38px;
+    border-radius: 28px;
+    background: linear-gradient(150deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+    border: 1.5px solid rgba(255,255,255,0.11);
+    backdrop-filter: blur(20px);
   }
-  .cred-sup .name { margin-top: 10px; font-size: 34px; font-weight: 800; letter-spacing: -0.4px; color: #fff; }
+  .f { display: flex; align-items: center; gap: 14px; font-size: 23px; font-weight: 600; color: #c9d4ea; }
+  .f .n {
+    width: 32px; height: 32px; flex: 0 0 32px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 13.5px; font-weight: 800; color: #ffc35c;
+    background: linear-gradient(140deg, rgba(255,157,28,0.22), rgba(255,106,0,0.08));
+    border: 1px solid rgba(255,166,60,0.4);
+  }
 
-  .cred-sub { flex: 1; }
-  .students { margin-top: 10px; font-size: 22px; font-weight: 600; line-height: 1.65; color: #c9d4ea; }
-  .students b { color: #fff; font-weight: 800; }
-  .students .num { color: #ffb648; font-weight: 800; }
+  /* ---------- how it works ---------- */
+  .how {
+    position: relative; z-index: 2;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+    margin: 38px 96px 0 96px;
+  }
+  .h-step {
+    position: relative; padding: 30px 26px 28px; border-radius: 24px; overflow: hidden;
+    background: linear-gradient(155deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+    border: 1.5px solid rgba(255,255,255,0.11);
+    backdrop-filter: blur(18px);
+  }
+  .h-num {
+    font-size: 42px; font-weight: 800; line-height: 1; letter-spacing: -2px;
+    color: transparent; -webkit-text-stroke: 2px rgba(255,176,32,0.55);
+  }
+  .h-title { margin-top: 10px; font-size: 25px; font-weight: 800; color: #fff; letter-spacing: -0.4px; }
+  .h-sub { margin-top: 6px; font-size: 16px; font-weight: 600; line-height: 1.45; color: #9fadc9; }
+  .h-step::after {
+    content: ""; position: absolute; right: -40px; top: -40px; width: 130px; height: 130px;
+    border-radius: 50%; background: radial-gradient(circle, rgba(255,138,0,0.18), transparent 70%);
+  }
 
-  /* CTA */
+  /* ---------- team ---------- */
+  .team { position: relative; z-index: 2; margin: 34px 96px 0 96px; }
+  .presenters { display: flex; gap: 18px; }
+  .p-card {
+    flex: 1; padding: 24px 24px; border-radius: 22px;
+    background: linear-gradient(150deg, rgba(255,255,255,0.075), rgba(255,255,255,0.02));
+    border: 1.5px solid rgba(255,255,255,0.11);
+    backdrop-filter: blur(18px);
+  }
+  .p-label { font-size: 11.5px; font-weight: 800; letter-spacing: 2.6px; color: #ffb648; text-transform: uppercase; }
+  .p-name { margin-top: 7px; font-size: 25px; font-weight: 800; letter-spacing: -0.4px; color: #fff; }
+  .p-id { margin-top: 4px; font-size: 15px; font-weight: 700; color: #93a0bf; }
+
+  .sup {
+    display: flex; align-items: center; gap: 18px; margin-top: 16px; padding: 17px 26px;
+    border-radius: 20px;
+    background: linear-gradient(120deg, rgba(255,176,32,0.12), rgba(255,106,0,0.04));
+    border: 1.5px solid rgba(255,166,60,0.3);
+  }
+  .sup .p-label { color: #ffc35c; }
+  .sup .name { font-size: 23px; font-weight: 800; color: #fff; margin-left: auto; }
+
+  .stack {
+    position: relative; z-index: 2; margin: 18px 0 0 0;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px;
+    font-size: 15px; font-weight: 700; color: #7f8dab;
+  }
+  .stack b { font-size: 12px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: #ffb648; margin-right: 6px; }
+  .stack span {
+    padding: 7px 14px; border-radius: 999px; color: #c3cee4;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+  }
+
+  /* ---------- CTA ---------- */
   .cta {
     position: relative; z-index: 2; margin-top: auto;
-    padding: 42px 96px 44px 96px;
+    padding: 52px 96px 44px 96px;
     background: linear-gradient(120deg, #ffb020 0%, #ff8a00 52%, #f45400 100%);
-    border-top-left-radius: 60px; border-top-right-radius: 60px;
+    border-top-left-radius: 54px; border-top-right-radius: 54px;
   }
   .cta::after {
     content: ""; position: absolute; inset: 0; border-radius: inherit;
-    background: radial-gradient(700px 240px at 18% 0%, rgba(255,255,255,0.32), transparent 60%);
+    background: radial-gradient(700px 220px at 18% 0%, rgba(255,255,255,0.32), transparent 60%);
   }
 
   .cta-title {
     position: relative; z-index: 1;
-    font-size: 68px; font-weight: 800; letter-spacing: -2px; line-height: 1.05; color: #131c2e;
+    font-size: 68px; font-weight: 800; letter-spacing: -2.2px; line-height: 1.05; color: #131c2e;
   }
   .cta-title span { color: #fff; }
 
-  .cta-row { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; margin-top: 24px; }
+  .cta-row { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; margin-top: 22px; }
 
   .pill {
-    display: inline-flex; align-items: center; gap: 18px;
-    padding: 22px 34px; border-radius: 999px;
-    background: #0b1526; color: #fff; font-size: 28px; font-weight: 700;
-    box-shadow: 0 20px 40px rgba(11,21,38,0.35); white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 16px;
+    padding: 18px 30px; border-radius: 999px;
+    background: #0b1526; color: #fff; font-size: 24px; font-weight: 700;
+    box-shadow: 0 18px 36px rgba(11,21,38,0.35); white-space: nowrap;
   }
-  .pill svg { width: 34px; height: 34px; stroke: #ffb648; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .pill svg { width: 30px; height: 30px; stroke: #ffb648; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-  .cta-note { font-size: 26px; font-weight: 800; color: #2a1a08; text-align: right; line-height: 1.35; }
-  .cta-note small { display: block; font-size: 21px; font-weight: 700; color: rgba(19,28,46,0.66); }
+  .dept { text-align: right; font-size: 19px; font-weight: 800; color: #2a1a08; line-height: 1.35; }
+  .dept small { display: block; font-size: 16px; font-weight: 700; color: rgba(19,28,46,0.68); }
 </style>
 </head>
 <body>
@@ -302,123 +478,225 @@
       <div class="brand-name">GHAR <em>TAK</em></div>
       <div class="brand-urdu">گھر تک</div>
     </div>
+    <div class="uni-card">
+      <img src="leads-university-logo.png" alt="Lahore Leads University" />
+    </div>
   </header>
 
   <section class="hero">
     <div class="kicker">Neighbourhood marketplace</div>
     <h1>Your whole<br /><span class="line-2">neighbourhood.</span></h1>
     <p class="hero-urdu">آپ کے محلے کی اپنی مارکیٹ</p>
-    <p class="hero-sub">Groceries, food, pharmacy and <b>home services</b> — from the shops and pros right around you.</p>
+    <p class="hero-sub">Order from local shops, book <b>verified home services</b> and track every delivery — all in one app.</p>
   </section>
 
-  <div class="device-wrap">
-    <div class="phone-glow"></div>
-
-    <div class="float-chip chip-right">
-      <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
-      Verified pros
-    </div>
-    <div class="float-chip chip-left">
-      <svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-      Near you
-    </div>
-
+  <div class="phones">
+    <!-- screen 1: home -->
     <div class="phone">
       <div class="screen">
-        <div class="status-row"><span>9:41</span><span>● ● ●</span></div>
-
-        <div class="app-head">
-          <div class="app-brand">
-            <img src="../../apps/ghar-tak/public/logo-dark.png" alt="" />
-            Ghar Tak
-          </div>
-          <div class="loc-pill">Gulberg</div>
+        <div class="s-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="s-head">
+          <div class="s-brand"><img src="../../apps/ghar-tak/public/logo-dark.png" alt="" />Ghar Tak</div>
+          <div class="s-loc">Gulberg</div>
         </div>
-
-        <div class="search">
+        <div class="s-search">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           Search shops, services...
         </div>
-
-        <div class="cat-row">
-          <div class="cat active">Kirana</div>
-          <div class="cat">Food</div>
-          <div class="cat">Pharmacy</div>
-          <div class="cat">AC repair</div>
+        <div class="s-cats">
+          <div class="s-cat on">Kirana</div>
+          <div class="s-cat">Food</div>
+          <div class="s-cat">Pharmacy</div>
+          <div class="s-cat">AC repair</div>
         </div>
-
-        <div class="sec-head"><b>Near you</b><span>See all</span></div>
-
-        <div class="store">
-          <div class="thumb">🛒</div>
-          <div class="store-info"><b>Al-Madina Kirana</b><span>1.2 km · 15 min delivery</span></div>
-          <div class="store-arrow">›</div>
+        <div class="s-sec"><b>Near you</b><span>See all</span></div>
+        <div class="s-store">
+          <div class="s-thumb">🛒</div>
+          <div><b>Al-Madina Kirana</b><span>1.2 km · 15 min</span></div>
+          <div class="s-arrow">›</div>
         </div>
-
-        <div class="store">
-          <div class="thumb">🥐</div>
-          <div class="store-info"><b>Fresh Bakers</b><span>0.8 km · 12 min delivery</span></div>
-          <div class="store-arrow">›</div>
+        <div class="s-store">
+          <div class="s-thumb">🥐</div>
+          <div><b>Fresh Bakers</b><span>0.8 km · 12 min</span></div>
+          <div class="s-arrow">›</div>
         </div>
+        <div class="s-store">
+          <div class="s-thumb">💊</div>
+          <div><b>Care Pharmacy</b><span>2.4 km · 18 min</span></div>
+          <div class="s-arrow">›</div>
+        </div>
+        <div class="s-sec"><b>Popular now</b><span>See all</span></div>
+        <div class="s-grid">
+          <div class="s-prod"><div class="s-prod-img">🍚</div><b>Basmati 5kg</b><span>Rs 1,850</span></div>
+          <div class="s-prod"><div class="s-prod-img">🥛</div><b>Milk 1L</b><span>Rs 240</span></div>
+        </div>
+        <div class="s-promo">
+          <b>20% off your first order</b>
+          <span>Use code GHAR20 at checkout</span>
+        </div>
+        <div class="s-reorder">
+          <span>🔁</span>
+          <div><b>Reorder last basket</b><span>8 items · Rs 1,730</span></div>
+          <em>Add</em>
+        </div>
+        <div class="s-nav"><i class="on"></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
 
-        <div class="track">
-          <div class="track-top">
-            Order #GT-2481
-            <span><i class="live-dot"></i>On the way</span>
+    <!-- screen 2: service booking -->
+    <div class="phone mid">
+      <div class="screen">
+        <div class="s-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="s-head">
+          <div class="s-title">AC Service</div>
+          <div class="s-loc">Gulberg</div>
+        </div>
+        <div class="tech">
+          <div class="avatar">AK</div>
+          <div class="tech-info"><b>Ahmed Khan</b><span>4.9 ★ · 320 jobs done</span></div>
+          <div class="verified">VERIFIED</div>
+        </div>
+        <div class="s-label">Service type</div>
+        <div class="s-chips">
+          <div class="s-chip on">Deep clean</div>
+          <div class="s-chip">Gas refill</div>
+          <div class="s-chip">Repair</div>
+        </div>
+        <div class="s-label">Pick a slot</div>
+        <div class="slot"><span>Today · 2:00 – 4:00 PM</span><em>Available</em></div>
+        <div class="slot"><span>Tomorrow · 10:00 – 12:00 AM</span><b>Pick</b></div>
+        <div class="s-label">Service address</div>
+        <div class="s-addr">
+          <span>🏠</span>
+          <div><b>House 42, Street 7</b><span>Gulberg III, Lahore</span></div>
+          <em>Change</em>
+        </div>
+        <div class="s-label">What's included</div>
+        <div class="s-inc"><i>✓</i>Filter &amp; coil deep clean</div>
+        <div class="s-inc"><i>✓</i>Gas pressure check</div>
+        <div class="s-review">
+          <div class="s-stars">★★★★★</div>
+          <p>“Fixed my AC in one visit. Clean work, on time.”</p>
+          <span>Sara K. · verified customer</span>
+        </div>
+        <div class="s-review">
+          <div class="s-stars">★★★★★</div>
+          <p>“Paid exactly the quoted price. Highly recommended.”</p>
+          <span>Usman R. · verified customer</span>
+        </div>
+        <div class="price-row">
+          <div class="price"><b>Rs 2,500</b><span>Upfront price · no hidden charges</span></div>
+          <div class="book-btn">Book now</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- screen 3: tracking -->
+    <div class="phone">
+      <div class="screen">
+        <div class="s-status"><span>9:41</span><span>● ● ●</span></div>
+        <div class="s-head">
+          <div class="s-title">Order #GT-2481</div>
+          <div class="s-live"><i></i>LIVE</div>
+        </div>
+        <div class="s-map">
+          <div class="road r1"></div>
+          <div class="road r2"></div>
+          <div class="road r3"></div>
+          <div class="route"></div>
+          <div class="pin home">🏠</div>
+          <div class="pin rider">🛵</div>
+        </div>
+        <div class="steps">
+          <div class="step done"><i></i>Order placed</div>
+          <div class="step done"><i></i>Packed by shop</div>
+          <div class="step now"><i></i><b>On the way · 6 min</b></div>
+          <div class="step"><i></i>Delivered</div>
+        </div>
+        <div class="s-sec"><b>Order summary</b><span>3 items</span></div>
+        <div class="s-sum">
+          <div class="s-line"><span>Al-Madina Kirana</span><b>Rs 1,240</b></div>
+          <div class="s-line"><span>Fresh Bakers</span><b>Rs 380</b></div>
+          <div class="s-line"><span>Care Pharmacy</span><b>Rs 260</b></div>
+          <div class="s-line"><span>Delivery fee</span><b>Rs 90</b></div>
+          <div class="s-line total"><span>Total</span><b>Rs 1,970</b></div>
+        </div>
+        <div class="s-support">
+          <span>💬</span>
+          <div><b>Need help?</b><span>Chat with Ghar Tak support</span></div>
+          <em>Chat</em>
+        </div>
+        <div class="rider">
+          <div class="avatar">B</div>
+          <div><b>Bilal · Rider</b><span>2.1 km away</span></div>
+          <div class="r-actions">
+            <div class="r-btn"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg></div>
+            <div class="r-btn"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.4-.7L3 21l1.8-5.4A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg></div>
           </div>
-          <div class="track-sub">Arriving in 6 minutes · Rider nearby</div>
-          <div class="bar"><i></i></div>
         </div>
-
-        <div class="nav"><i class="on"></i><i></i><i></i><i></i></div>
       </div>
     </div>
   </div>
 
-  <section class="cards">
-    <div class="card">
-      <div class="icon">
-        <svg viewBox="0 0 24 24"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v8h14v-8"/><path d="M10 20v-5h4v5"/></svg>
-      </div>
-      <div>
-        <h3>Kirana, food &amp; pharmacy</h3>
-        <p>Order from shops within minutes of you</p>
-      </div>
-    </div>
+  <section class="aim">
+    <div class="aim-label">Aim</div>
+    <div class="aim-text">Bring every <b>neighbourhood shop</b> and <b>home-service pro</b> online, and let customers order, book and track everything in one trusted app.</div>
+  </section>
 
-    <div class="card">
-      <div class="icon">
-        <svg viewBox="0 0 24 24"><path d="M13 2L4.5 13.5H10l-1 8.5 8.5-11.5H12l1-8.5z"/></svg>
-      </div>
-      <div>
-        <h3>AC, electrician &amp; plumber</h3>
-        <p>Verified neighbourhood pros, upfront prices</p>
-      </div>
-    </div>
+  <section class="features">
+    <div class="f"><span class="n">1</span>Kirana &amp; daily-needs delivery</div>
+    <div class="f"><span class="n">2</span>Food &amp; pharmacy ordering</div>
+    <div class="f"><span class="n">3</span>Verified home-service pros</div>
+    <div class="f"><span class="n">4</span>Upfront service pricing</div>
+    <div class="f"><span class="n">5</span>Live order &amp; job tracking</div>
+    <div class="f"><span class="n">6</span>In-app chat &amp; support</div>
+    <div class="f"><span class="n">7</span>Offers &amp; repeat ordering</div>
+    <div class="f"><span class="n">8</span>Mobile + web from one codebase</div>
+  </section>
 
-    <div class="card">
-      <div class="icon">
-        <svg viewBox="0 0 24 24"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17.5" cy="18" r="1.8"/></svg>
-      </div>
-      <div>
-        <h3>Live tracking &amp; support</h3>
-        <p>Follow every order from shop to doorstep</p>
-      </div>
+  <section class="how">
+    <div class="h-step">
+      <div class="h-num">01</div>
+      <div class="h-title">Browse nearby</div>
+      <div class="h-sub">See shops and verified pros around your location, with live delivery times.</div>
+    </div>
+    <div class="h-step">
+      <div class="h-num">02</div>
+      <div class="h-title">Order or book</div>
+      <div class="h-sub">Add to cart or pick a slot — every price is shown upfront, no surprises.</div>
+    </div>
+    <div class="h-step">
+      <div class="h-num">03</div>
+      <div class="h-title">Track live</div>
+      <div class="h-sub">Follow your rider or job in real time and chat with support in the app.</div>
     </div>
   </section>
 
-  <section class="credits">
-    <div class="cred-sup">
-      <div class="cred-label">Supervised by</div>
+  <section class="team">
+    <div class="presenters">
+      <div class="p-card">
+        <div class="p-label">Presented by</div>
+        <div class="p-name">Ahmad Ali</div>
+        <div class="p-id">S23-1134</div>
+      </div>
+      <div class="p-card">
+        <div class="p-label">Presented by</div>
+        <div class="p-name">Faizan Abbasi</div>
+        <div class="p-id">S23-1049</div>
+      </div>
+      <div class="p-card">
+        <div class="p-label">Presented by</div>
+        <div class="p-name">Shaheer Arshad</div>
+        <div class="p-id">S23-1047</div>
+      </div>
+    </div>
+    <div class="sup">
+      <div class="p-label">Supervised by</div>
       <div class="name">Sir Faisal Naeem</div>
     </div>
-    <div class="cred-sub">
-      <div class="cred-label">Submitted by</div>
-      <div class="students">
-        <span class="num">1.</span> <b>Ahmad Ali</b> (S23-1134) &nbsp;·&nbsp;
-        <span class="num">2.</span> <b>Faizan Abbasi</b> (S23-1049)<br />
-        <span class="num">3.</span> <b>Shaheer Arshad</b> (S23-1047)
-      </div>
+    <div class="stack">
+      <b>Built with</b>
+      <span>React Native</span><span>Expo</span><span>Node.js</span><span>Express</span><span>PostgreSQL</span><span>Drizzle ORM</span><span>Firebase</span>
     </div>
   </section>
 
@@ -429,9 +707,9 @@
         <svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
         Shop local · Book pros · Track live
       </div>
-      <div class="cta-note">
-        Apke ghar tak
-        <small>Every order, right to your doorstep</small>
+      <div class="dept">
+        Department of Computer Science
+        <small>Lahore Leads University, Lahore</small>
       </div>
     </div>
   </footer>
