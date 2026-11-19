@@ -81,7 +81,7 @@
   }
 
   /* hero */
-  .hero { position: relative; z-index: 2; padding: 78px 96px 0 96px; }
+  .hero { position: relative; z-index: 2; padding: 72px 96px 0 96px; }
 
   .kicker {
     display: inline-block; font-size: 26px; font-weight: 800; letter-spacing: 8px;
@@ -109,7 +109,7 @@
   .device-wrap {
     position: relative; z-index: 2;
     display: flex; justify-content: center;
-    padding-top: 76px;
+    padding-top: 64px;
   }
 
   .phone-glow {
@@ -203,12 +203,12 @@
   .cards {
     position: relative; z-index: 2;
     display: flex; flex-direction: column; gap: 24px;
-    padding: 56px 96px 0 96px;
+    padding: 48px 96px 0 96px;
   }
 
   .card {
     display: flex; align-items: center; gap: 30px;
-    padding: 30px 38px; border-radius: 36px;
+    padding: 28px 38px; border-radius: 36px;
     background: linear-gradient(150deg, rgba(255,255,255,0.085), rgba(255,255,255,0.028));
     border: 1.5px solid rgba(255,255,255,0.12);
     box-shadow: 0 26px 60px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.16);
@@ -225,6 +225,34 @@
 
   .card h3 { font-size: 37px; font-weight: 800; letter-spacing: -0.5px; }
   .card p { margin-top: 6px; font-size: 27px; font-weight: 600; color: var(--muted); }
+
+  /* credits */
+  .credits {
+    position: relative; z-index: 2;
+    display: flex; align-items: stretch; gap: 38px;
+    margin: 34px 96px 0 96px; padding: 28px 40px 28px 46px;
+    border-radius: 32px;
+    background: linear-gradient(150deg, rgba(255,255,255,0.08), rgba(255,255,255,0.025));
+    border: 1.5px solid rgba(255,255,255,0.12);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.14);
+    backdrop-filter: blur(20px);
+  }
+  .credits::before {
+    content: ""; position: absolute; left: 0; top: 26px; bottom: 26px; width: 6px;
+    border-radius: 999px; background: linear-gradient(180deg, #ffb020, #f45400);
+  }
+
+  .cred-sup { flex: 0 0 318px; padding-right: 38px; border-right: 1px solid rgba(255,255,255,0.12); }
+  .cred-label {
+    font-size: 16px; font-weight: 800; letter-spacing: 3.5px; text-transform: uppercase;
+    color: #ffb648;
+  }
+  .cred-sup .name { margin-top: 10px; font-size: 34px; font-weight: 800; letter-spacing: -0.4px; color: #fff; }
+
+  .cred-sub { flex: 1; }
+  .students { margin-top: 10px; font-size: 22px; font-weight: 600; line-height: 1.65; color: #c9d4ea; }
+  .students b { color: #fff; font-weight: 800; }
+  .students .num { color: #ffb648; font-weight: 800; }
 
   /* CTA */
   .cta {
@@ -375,6 +403,21 @@
       <div>
         <h3>Live tracking &amp; support</h3>
         <p>Follow every order from shop to doorstep</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="credits">
+    <div class="cred-sup">
+      <div class="cred-label">Supervised by</div>
+      <div class="name">Sir Faisal Naeem</div>
+    </div>
+    <div class="cred-sub">
+      <div class="cred-label">Submitted by</div>
+      <div class="students">
+        <span class="num">1.</span> <b>Ahmad Ali</b> (S23-1134) &nbsp;·&nbsp;
+        <span class="num">2.</span> <b>Faizan Abbasi</b> (S23-1049)<br />
+        <span class="num">3.</span> <b>Shaheer Arshad</b> (S23-1047)
       </div>
     </div>
   </section>
