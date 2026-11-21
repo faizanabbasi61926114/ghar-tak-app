@@ -16,6 +16,10 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({
     apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
     baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    // The SDK's defaults (10 minutes, two retries) would hold a customer's request for up to
+    // half an hour. The website gives up after 75 s, so this fits inside that.
+    timeout: 30_000,
+    maxRetries: 1,
   });
 }
 

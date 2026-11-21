@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EARTH_RADIUS_KM, MAX_DELIVERY_RADIUS_KM, distanceKm, type Coords } from "@workspace/geo";
 import { SIGNED_IN_AS, api, createProvider, resetDatabase } from "../test/helpers";
 
@@ -122,5 +122,32 @@ describe("what a seller can save", () => {
       await expect(createProvider("x", { name: "x", ...fields }), JSON.stringify(fields)).rejects.toThrow();
     }
     await expect(createProvider("ok", { name: "ok", lat: "31.5204000", lng: "74.3587000", deliveryRadiusKm: "50" })).resolves.toBeTruthy();
+  });
+});
+
+describe("suggestions with nothing usable to go on", () => {
+  beforeEach(() => {
+    // Were the paid AI service reached, it would fail here (502) instead of answering.
+    vi.stubEnv("AI_INTEGRATIONS_OPENAI_BASE_URL", "");
+    vi.stubEnv("AI_INTEGRATIONS_OPENAI_API_KEY", "");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("answers an empty list without calling the AI service", async () => {
+    const bodies = [
+      {},
+      {
+        pastPurchases: "milk",
+        nearbyStores: [{ storeName: 5, products: "bread" }, null, { storeName: "Shop", products: [] }],
+        userLocation: { latitude: "31.5", longitude: 999 },
+      },
+    ];
+    for (const body of bodies) {
+      const res = await api().post("/api/ai/recommendations").send(body);
+      expect(res.status, JSON.stringify(body)).toBe(200);
+      expect(res.body).toEqual({ recommendations: [] });
+    }
   });
 });

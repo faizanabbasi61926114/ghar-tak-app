@@ -154,18 +154,49 @@ When the user shares raw QR code content that is not a Ghar Tak link, explain wh
   res.json({ response });
 }, "The assistant couldn't process that message. Please rephrase and try again."));
 
+/** Up to `max` non-empty strings, each cut to `length` characters; anything else is dropped. */
+function textList(value: unknown, max: number, length = 100): string[] {
+  return (Array.isArray(value) ? value : [])
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .slice(0, max)
+    .map((item) => item.slice(0, length));
+}
+
+/** A real coordinate pair, rounded to about 1 km: the AI service never needs the exact spot. */
+function roughLocation(value: unknown): { latitude: number; longitude: number } | null {
+  if (!value || typeof value !== "object") return null;
+  const { latitude, longitude } = value as { latitude?: unknown; longitude?: unknown };
+  if (typeof latitude !== "number" || typeof longitude !== "number") return null;
+  if (!(Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180)) return null;
+  return { latitude: Math.round(latitude * 100) / 100, longitude: Math.round(longitude * 100) / 100 };
+}
+
 router.post("/ai/recommendations", safe(async (req, res) => {
-  const { userLocation, pastPurchases, nearbyStores } = req.body as {
-    userLocation?: { latitude: number; longitude: number };
-    pastPurchases?: string[];
-    nearbyStores?: Array<{ storeName: string; products: string[] }>;
-  };
+  const body = (req.body ?? {}) as { userLocation?: unknown; pastPurchases?: unknown; nearbyStores?: unknown };
+  // Whatever the request holds, the prompt stays small: a few names, each cut short. The
+  // website sends at most 10 past purchases and 3 stores of 8 products.
+  const pastPurchases = textList(body.pastPurchases, 20);
+  const nearbyStores = (Array.isArray(body.nearbyStores) ? body.nearbyStores : [])
+    .filter((store): store is { storeName?: unknown; products?: unknown } => !!store && typeof store === "object")
+    .map((store) => ({
+      storeName: typeof store.storeName === "string" ? store.storeName.trim().slice(0, 100) : "",
+      products: textList(store.products, 20),
+    }))
+    .filter((store) => store.storeName && store.products.length > 0)
+    .slice(0, 5);
+  const userLocation = roughLocation(body.userLocation);
+
+  // Nothing to go on: no call to the paid service.
+  if (!pastPurchases.length && !nearbyStores.length && !userLocation) {
+    res.json({ recommendations: [] });
+    return;
+  }
 
   const context = [
-    pastPurchases?.length
+    pastPurchases.length
       ? `Past purchases: ${pastPurchases.join(", ")}`
       : "No past purchase history.",
-    nearbyStores?.length
+    nearbyStores.length
       ? `Nearby stores and their products:\n${nearbyStores.map((s) => `- ${s.storeName}: ${s.products.join(", ")}`).join("\n")}`
       : "No nearby store information.",
     userLocation
