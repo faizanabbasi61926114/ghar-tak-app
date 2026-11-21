@@ -381,6 +381,12 @@ export async function customFetch<T = unknown>(
     }
 
     return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  } catch (error) {
+    // Browsers that ignore the reason given to abort() reject with a plain AbortError; the
+    // page must still see a timeout (one retry), not a cancelled request.
+    const timedOut = timeout?.timedOut();
+    if (timedOut && (error as { name?: string } | null)?.name === "AbortError") throw timedOut;
+    throw error;
   } finally {
     timeout?.clear();
   }
@@ -397,15 +403,18 @@ function timeoutSignal(parent: AbortSignal | null | undefined, ms: number) {
   const onParentAbort = () => controller.abort(parent?.reason);
   if (parent?.aborted) controller.abort(parent.reason);
   else parent?.addEventListener("abort", onParentAbort, { once: true });
+  let timeoutError: Error | null = null;
   const timer = setTimeout(() => {
-    const reason =
+    timeoutError =
       typeof DOMException === "function"
         ? new DOMException("The server took too long to answer.", "TimeoutError")
-        : new Error("The server took too long to answer.");
-    controller.abort(reason);
+        : Object.assign(new Error("The server took too long to answer."), { name: "TimeoutError" });
+    controller.abort(timeoutError);
   }, ms);
   return {
     signal: controller.signal,
+    /** The timeout's error once the time ran out, otherwise null. */
+    timedOut: () => timeoutError,
     clear: () => {
       clearTimeout(timer);
       parent?.removeEventListener("abort", onParentAbort);

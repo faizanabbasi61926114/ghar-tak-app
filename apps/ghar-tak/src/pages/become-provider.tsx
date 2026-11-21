@@ -123,7 +123,7 @@ export default function BecomeProviderPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Business Description</Label>
-                <Textarea id="description" placeholder="Tell us a bit about what you offer..." rows={4} required value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+                <Textarea id="description" maxLength={2000} placeholder="Tell us a bit about what you offer..." rows={4} required value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">

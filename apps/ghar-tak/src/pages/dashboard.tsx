@@ -928,7 +928,7 @@ export default function ProviderDashboardPage() {
                 <div><Label>Email</Label><Input value={editForm.email ?? ""} onChange={e => setEditForm({ ...editForm, email: e.target.value })} /></div>
                 <div><Label>Address</Label><Input value={editForm.address ?? ""} onChange={e => setEditForm({ ...editForm, address: e.target.value })} /></div>
                 <div><Label>Phone</Label><Input value={editForm.phone ?? ""} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} /></div>
-                <div><Label>Description</Label><Textarea value={editForm.description ?? ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} /></div>
+                <div><Label>Description</Label><Textarea maxLength={2000} value={editForm.description ?? ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} /></div>
                 <div><Label>Opening Hours</Label><Input value={editForm.openingHours ?? ""} onChange={e => setEditForm({ ...editForm, openingHours: e.target.value })} /></div>
                 <div className="flex items-center justify-between">
                   <Label>Store Status</Label>

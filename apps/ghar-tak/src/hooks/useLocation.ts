@@ -15,6 +15,10 @@ import {
 // how it is read back live in @workspace/geo, shared with the mobile app.
 
 const STORAGE_KEY = 'ghar-tak:user-location';
+// Set by "Forget my location", cleared when the customer sets one again. Until then the
+// device isn't asked by itself, on this page or the next, so a browser that already has
+// location permission doesn't quietly save the location straight back.
+const FORGOTTEN_KEY = 'ghar-tak:location-forgotten';
 
 /** locating: the first device request is still open. ready: a location is known. failed: none is known. */
 type LocationStatus = 'locating' | 'ready' | 'failed';
@@ -50,8 +54,21 @@ function readSaved(): SavedLocation | null {
   }
 }
 
+// Kept in memory too, for a browser whose storage is unavailable.
+let forgottenHere = false;
+
+function isForgotten(): boolean {
+  if (forgottenHere) return true;
+  try {
+    return localStorage.getItem(FORGOTTEN_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 const initial = readSaved();
-let state: LocationState = { saved: initial, status: initial ? 'ready' : 'locating' };
+// Forgotten: nothing will ask the device, so the location is unknown, not still being found.
+let state: LocationState = { saved: initial, status: initial ? 'ready' : isForgotten() ? 'failed' : 'locating' };
 const listeners = new Set<() => void>();
 
 function setState(next: Partial<LocationState>) {
@@ -70,7 +87,9 @@ const getSnapshot = () => state;
 
 function save(point: Coords, how: SaveHow) {
   const saved = makeSavedLocation(point, how);
+  forgottenHere = false;
   try {
+    localStorage.removeItem(FORGOTTEN_KEY);
     localStorage.setItem(STORAGE_KEY, serializeSavedLocation(saved));
   } catch {
     // Storage can be unavailable (private mode, quota): the in-memory copy still works.
@@ -79,7 +98,9 @@ function save(point: Coords, how: SaveHow) {
 }
 
 function forgetLocation() {
+  forgottenHere = true;
   try {
+    localStorage.setItem(FORGOTTEN_KEY, '1');
     localStorage.removeItem(STORAGE_KEY);
   } catch {
     // Nothing to remove where storage is unavailable.
@@ -91,6 +112,7 @@ function forgetLocation() {
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (event) => {
     if (event.key !== STORAGE_KEY && event.key !== null) return;
+    forgottenHere = false; // storage now says whether it was forgotten
     const saved = readSaved();
     setState(saved ? { saved, status: 'ready' } : { saved: null, status: state.status === 'locating' ? 'locating' : 'failed' });
   });
@@ -118,6 +140,11 @@ function requestDeviceLocation() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         clearTimeout(giveUp);
+        // "Forget my location" pressed while the device was still answering, here or in another tab.
+        if (isForgotten()) {
+          fail();
+          return;
+        }
         // A spot chosen meanwhile, here or in another tab, wins over the device.
         const chosen = [readSaved(), state.saved].find((saved) => saved?.source === 'chosen');
         if (chosen) {
@@ -150,7 +177,7 @@ function requestDeviceLocation() {
 let askedAutomatically = false;
 
 function locateAutomatically() {
-  if (askedAutomatically) return;
+  if (askedAutomatically || isForgotten()) return;
   const { saved } = state;
   if (saved && !isOutdated(saved)) return;
   askedAutomatically = true;

@@ -42,7 +42,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { apiErrorReason } from '@/lib/api-error';
+import { apiErrorReason, couldNotLoad } from '@/lib/api-error';
+import LoadError from '@/components/shared/LoadError';
 
 const TIMELINE_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'] as const;
 
@@ -74,7 +75,7 @@ export default function OrderTrackingPage({ params }: { params: { id: string } }
   const { toast } = useToast();
   const { addItems, openCart } = useCart();
 
-  const { data: order, isLoading, isError } = useGetOrder(orderId, {
+  const { data: order, isLoading, isError, error, isFetching, refetch } = useGetOrder(orderId, {
     query: {
       enabled: !!orderId && !!user,
       queryKey: getGetOrderQueryKey(orderId),
@@ -190,7 +191,11 @@ export default function OrderTrackingPage({ params }: { params: { id: string } }
     return <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
   }
 
-  if (isError || !order) {
+  // A refresh that fails (the connection drops while the order is followed) keeps it on screen.
+  if (!order) {
+    if (isError && couldNotLoad(error)) {
+      return <LoadError what="order" retrying={isFetching} onRetry={() => void refetch()} />;
+    }
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center p-4">
         <AlertTriangle className="h-16 w-16 text-destructive mb-6" />

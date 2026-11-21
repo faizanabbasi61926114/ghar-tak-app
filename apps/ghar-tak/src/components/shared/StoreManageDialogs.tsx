@@ -83,7 +83,7 @@ function EditShopForm({
       <div className="space-y-3 py-4">
         <div><Label>Name</Label><Input value={form.name ?? ""} onChange={(e) => set({ name: e.target.value })} /></div>
         <div><Label>Category</Label><CategorySelect providerType={shop.type} value={form.category ?? ""} onChange={(category) => set({ category })} /></div>
-        <div><Label>Description</Label><Textarea value={form.description ?? ""} onChange={(e) => set({ description: e.target.value })} /></div>
+        <div><Label>Description</Label><Textarea maxLength={2000} value={form.description ?? ""} onChange={(e) => set({ description: e.target.value })} /></div>
         <div className="grid grid-cols-2 gap-3">
           <div><Label>Phone</Label><Input value={form.phone ?? ""} onChange={(e) => set({ phone: e.target.value })} /></div>
           <div><Label>Email</Label><Input value={form.email ?? ""} onChange={(e) => set({ email: e.target.value })} /></div>

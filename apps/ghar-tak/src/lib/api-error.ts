@@ -1,3 +1,12 @@
+/**
+ * A read that failed without the server saying no: offline, timed out, or a fault on the
+ * server. Trying again can help, so a page says "couldn't load" here, not "not found".
+ */
+export function couldNotLoad(error: unknown): boolean {
+  const status = (error as { status?: number } | null)?.status;
+  return typeof status !== "number" || status >= 500;
+}
+
 // When the server refuses a change (an order can't go back a step, a field is too long,
 // the seller already has a store) its reply says why. Show that instead of a bare "failed".
 export function apiErrorReason(error: unknown): string | undefined {
