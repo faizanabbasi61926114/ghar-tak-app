@@ -8,8 +8,9 @@ import {
   clerkProxyMiddleware,
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
+import { errorHandler, notFound } from "./middlewares/errorHandlers";
 import router from "./routes";
-import { logger } from "./lib/logger";
+import { logger, serializeError } from "./lib/logger";
 import type { Logger as PinoLogger } from "pino";
 
 const app: Express = express();
@@ -30,6 +31,8 @@ app.use(
           statusCode: res.statusCode,
         };
       },
+      // pino-http replaces the logger's own error serializer on req.log, so pass it again.
+      err: serializeError,
     },
   }),
 );
@@ -52,5 +55,7 @@ app.use(
 );
 
 app.use("/api", router);
+app.use("/api", notFound);
+app.use(errorHandler);
 
 export default app;

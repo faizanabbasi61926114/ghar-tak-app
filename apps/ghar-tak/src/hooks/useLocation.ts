@@ -1,126 +1,203 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Location } from '@/lib/types';
+import { useEffect, useSyncExternalStore } from 'react';
+import {
+  deviceReading,
+  isOutdated,
+  makeSavedLocation,
+  parseSavedLocation,
+  serializeSavedLocation,
+  type Coords,
+  type LocationSource,
+  type SavedLocation,
+  type SaveHow,
+} from '@workspace/geo';
+
+// The customer's location, one store for every component. The rules for what is saved and
+// how it is read back live in @workspace/geo, shared with the mobile app.
 
 const STORAGE_KEY = 'ghar-tak:user-location';
-const LOCATION_EVENT = 'ghar-tak:location-change';
-const DEFAULT_ADDRESS = 'Pakistan (Default Location)';
+// Set by "Forget my location", cleared when the customer sets one again. Until then the
+// device isn't asked by itself, on this page or the next, so a browser that already has
+// location permission doesn't quietly save the location straight back.
+const FORGOTTEN_KEY = 'ghar-tak:location-forgotten';
 
-interface UseLocationReturn {
-  location: Location | null;
-  error: string | null;
-  loading: boolean;
-  hasRealLocation: boolean;
-  refetchLocation: () => void;
+/** locating: the first device request is still open. ready: a location is known. failed: none is known. */
+type LocationStatus = 'locating' | 'ready' | 'failed';
+
+interface LocationState {
+  saved: SavedLocation | null;
+  status: LocationStatus;
 }
 
-// A default location (e.g., city center) for when permission is denied or fails.
-const defaultLocation: Location = {
-  lat: 30.3753, // Approx. center of Pakistan
-  lng: 69.3451,
-  address: DEFAULT_ADDRESS,
-};
+// The browser's own timeout doesn't count the time its permission prompt stays open, so a
+// customer who ignores the prompt would wait forever. After this the location counts as
+// unknown; an answer that comes later is still used.
+const PROMPT_WAIT_MS = 10000;
 
-function readStoredLocation(): Location | null {
+interface UseLocationReturn {
+  location: Coords | null;
+  saved: SavedLocation | null;
+  source: LocationSource | null;
+  accuracyM: number | null;
+  place: string | null;
+  loading: boolean;
+  hasRealLocation: boolean;
+  chooseLocation: (point: Coords, how: SaveHow) => void;
+  /** Forgets the saved location on this browser (a shared computer, say). */
+  forgetLocation: () => void;
+}
+
+function readSaved(): SavedLocation | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<Location>;
-    if (typeof parsed.lat !== 'number' || typeof parsed.lng !== 'number') return null;
-    return {
-      lat: parsed.lat,
-      lng: parsed.lng,
-      address: parsed.address || 'Your Current Location',
-    };
+    return parseSavedLocation(localStorage.getItem(STORAGE_KEY));
   } catch {
     return null;
   }
 }
 
-function persistLocation(location: Location) {
+// Kept in memory too, for a browser whose storage is unavailable.
+let forgottenHere = false;
+
+function isForgotten(): boolean {
+  if (forgottenHere) return true;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(location));
+    return localStorage.getItem(FORGOTTEN_KEY) !== null;
   } catch {
-    // Storage can be unavailable (private mode, quota) — the in-memory cache still works.
+    return false;
   }
 }
 
-let cachedLocation: Location | null = readStoredLocation();
-let pendingRequest: Promise<Location | null> | null = null;
+const initial = readSaved();
+// Forgotten: nothing will ask the device, so the location is unknown, not still being found.
+let state: LocationState = { saved: initial, status: initial ? 'ready' : isForgotten() ? 'failed' : 'locating' };
+const listeners = new Set<() => void>();
 
-function requestBrowserLocation(): Promise<Location | null> {
-  // Share a single permission prompt / in-flight request across all consumers.
-  if (pendingRequest) return pendingRequest;
+function setState(next: Partial<LocationState>) {
+  state = { ...state, ...next };
+  listeners.forEach((listener) => listener());
+}
 
-  pendingRequest = new Promise<Location | null>((resolve) => {
-    if (!navigator.geolocation) {
-      resolve(null);
-      return;
-    }
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+const getSnapshot = () => state;
+
+function save(point: Coords, how: SaveHow) {
+  const saved = makeSavedLocation(point, how);
+  forgottenHere = false;
+  try {
+    localStorage.removeItem(FORGOTTEN_KEY);
+    localStorage.setItem(STORAGE_KEY, serializeSavedLocation(saved));
+  } catch {
+    // Storage can be unavailable (private mode, quota): the in-memory copy still works.
+  }
+  setState({ saved, status: 'ready' });
+}
+
+function forgetLocation() {
+  forgottenHere = true;
+  try {
+    localStorage.setItem(FORGOTTEN_KEY, '1');
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Nothing to remove where storage is unavailable.
+  }
+  setState({ saved: null, status: 'failed' });
+}
+
+// Another tab saved or cleared the location: use the same one here.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key !== STORAGE_KEY && event.key !== null) return;
+    forgottenHere = false; // storage now says whether it was forgotten
+    const saved = readSaved();
+    setState(saved ? { saved, status: 'ready' } : { saved: null, status: state.status === 'locating' ? 'locating' : 'failed' });
+  });
+}
+
+/** Asks the browser where the device is. It never replaces a spot the customer chose. */
+function requestDeviceLocation() {
+  const waiting = !state.saved;
+  const fail = () => {
+    // A refresh that fails keeps the old location on screen.
+    if (!state.saved) setState({ status: 'failed' });
+  };
+  if (!navigator.geolocation) {
+    fail();
+    return;
+  }
+  if (waiting) setState({ status: 'locating' });
+  const giveUp = waiting
+    ? setTimeout(() => {
+        if (state.status === 'locating') setState({ status: 'failed' });
+      }, PROMPT_WAIT_MS)
+    : undefined;
+
+  try {
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const location: Location = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          address: 'Your Current Location',
-        };
-        cachedLocation = location;
-        persistLocation(location);
-        window.dispatchEvent(new CustomEvent<Location>(LOCATION_EVENT, { detail: location }));
-        resolve(location);
+        clearTimeout(giveUp);
+        // "Forget my location" pressed while the device was still answering, here or in another tab.
+        if (isForgotten()) {
+          fail();
+          return;
+        }
+        // A spot chosen meanwhile, here or in another tab, wins over the device.
+        const chosen = [readSaved(), state.saved].find((saved) => saved?.source === 'chosen');
+        if (chosen) {
+          setState({ saved: chosen, status: 'ready' });
+          return;
+        }
+        const reading = deviceReading(position.coords.latitude, position.coords.longitude, position.coords.accuracy);
+        if (!reading) {
+          fail();
+          return;
+        }
+        save(reading.point, { source: 'device', accuracyM: reading.accuracyM });
       },
-      () => resolve(null),
+      () => {
+        clearTimeout(giveUp);
+        fail();
+      },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 5 * 60 * 1000 },
     );
-  }).finally(() => {
-    pendingRequest = null;
-  });
+  } catch {
+    // Some in-app browsers throw instead of calling the error callback.
+    clearTimeout(giveUp);
+    fail();
+  }
+}
 
-  return pendingRequest;
+// The device is asked by itself at most once per page session: a customer who ignored or
+// refused the prompt isn't asked again on every page, and an outdated reading is refreshed once.
+// Only their own action (the location dialog) asks again after that.
+let askedAutomatically = false;
+
+function locateAutomatically() {
+  if (askedAutomatically || isForgotten()) return;
+  const { saved } = state;
+  if (saved && !isOutdated(saved)) return;
+  askedAutomatically = true;
+  requestDeviceLocation();
 }
 
 export function useLocation(): UseLocationReturn {
-  const [location, setLocation] = useState<Location | null>(cachedLocation);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(cachedLocation === null);
+  const { saved, status } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
-  const fetchLocation = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    const result = await requestBrowserLocation();
-    if (result) {
-      setLocation(result);
-    } else {
-      setError(
-        cachedLocation
-          ? 'Could not refresh your location. Showing your last known area.'
-          : 'Could not get location. Showing results for a default area.',
-      );
-      if (!cachedLocation) setLocation(defaultLocation);
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    const onLocationChange = (event: Event) => {
-      const detail = (event as CustomEvent<Location>).detail;
-      if (!detail) return;
-      setLocation(detail);
-      setError(null);
-      setLoading(false);
-    };
-
-    window.addEventListener(LOCATION_EVENT, onLocationChange);
-    if (!cachedLocation) void fetchLocation();
-
-    return () => window.removeEventListener(LOCATION_EVENT, onLocationChange);
-  }, [fetchLocation]);
+  useEffect(locateAutomatically, []);
 
   return {
-    location,
-    error,
-    loading,
-    hasRealLocation: location !== null && location.address !== DEFAULT_ADDRESS,
-    refetchLocation: fetchLocation,
+    location: saved?.point ?? null,
+    saved,
+    source: saved?.source ?? null,
+    accuracyM: saved?.accuracyM ?? null,
+    place: saved?.place ?? null,
+    loading: status === 'locating',
+    hasRealLocation: saved !== null,
+    chooseLocation: save,
+    forgetLocation,
   };
 }

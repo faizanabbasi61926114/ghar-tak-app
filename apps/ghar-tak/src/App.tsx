@@ -3,12 +3,12 @@ import { ClerkProvider, SignIn, SignUp, useClerk, useSession } from '@clerk/reac
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { setAuthTokenGetter } from "@workspace/api-client-react";
-import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from 'wouter';
+import { Switch, Route, useLocation, useSearch, Router as WouterRouter, Redirect } from 'wouter';
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
-import { DataProvider } from "@/context/DataContext";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/shared/CartDrawer";
+import { LocationChooserProvider } from "@/components/shared/LocationChooser";
 import { Toaster } from "@/components/ui/toaster";
 import AppLayout from "@/components/layout/AppLayout";
 
@@ -53,7 +53,28 @@ if (!clerkPubKey) {
   throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY');
 }
 
-const queryClient = new QueryClient();
+// A 4xx answer (not found, not allowed) won't change on a retry, so show it straight away
+// instead of retrying three times. A request that timed out (20 s) is tried once more.
+// Network and server errors keep the usual retries.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        const status = (error as { status?: number } | null)?.status;
+        if (typeof status === 'number' && status >= 400 && status < 500) return false;
+        if ((error as { name?: string } | null)?.name === 'TimeoutError') return failureCount < 1;
+        return failureCount < 3;
+      },
+      // Offline, TanStack would otherwise pause a request: the page then has neither data nor
+      // an error, and lists fell through to "No stores deliver to your location yet". Trying
+      // anyway fails fast, and the page shows "couldn't load" with Try again instead.
+      networkMode: 'always',
+    },
+    // A save or an order made offline fails at once with "Can't reach Ghar Tak" instead of
+    // waiting, spinner on, to go through by itself whenever the connection comes back.
+    mutations: { networkMode: 'always' },
+  },
+});
 
 // Branded Clerk appearance matching the app's purple/green palette
 const clerkAppearance = {
@@ -107,6 +128,43 @@ const clerkAppearance = {
   },
 };
 
+// Signing in or up brings the customer back to the page they were on, not Home.
+const RETURN_PATH_KEY = 'ghar_tak_return_path';
+
+function ReturnPathRecorder() {
+  const [location] = useLocation();
+  const search = useSearch();
+  useEffect(() => {
+    if (location.startsWith('/sign-in') || location.startsWith('/sign-up')) return;
+    try {
+      sessionStorage.setItem(RETURN_PATH_KEY, location + (search ? `?${search}` : ''));
+    } catch { /* storage unavailable: fall back to Home */ }
+  }, [location, search]);
+  return null;
+}
+
+function returnUrl(): string {
+  let path = '/';
+  try {
+    path = sessionStorage.getItem(RETURN_PATH_KEY) || '/';
+  } catch { /* use Home */ }
+  return `${basePath}${isOwnPath(path) ? path : '/'}`;
+}
+
+/**
+ * Only a path on this site. "//other.site", "/\other.site" and "/<tab>/other.site" (browsers
+ * drop tabs and line breaks from a link, and wouter decodes "%09" into a tab) would all send
+ * the customer to another site once they signed in.
+ */
+function isOwnPath(path: string): boolean {
+  if (!/^\/(?![/\\])/.test(path) || /[\x00-\x1f\x7f]/.test(path)) return false;
+  try {
+    return new URL(path, window.location.origin).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 function SignInPageComponent() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-br from-purple-50 via-white to-green-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 px-4 py-12">
@@ -115,7 +173,13 @@ function SignInPageComponent() {
           <h1 className="text-3xl font-bold text-purple-700 dark:text-purple-400 mb-1">Ghar Tak</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm">Your neighborhood marketplace</p>
         </div>
-        <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+        <SignIn
+          routing="path"
+          path={`${basePath}/sign-in`}
+          signUpUrl={`${basePath}/sign-up`}
+          fallbackRedirectUrl={returnUrl()}
+          signUpFallbackRedirectUrl={returnUrl()}
+        />
       </div>
     </div>
   );
@@ -129,7 +193,13 @@ function SignUpPageComponent() {
           <h1 className="text-3xl font-bold text-purple-700 dark:text-purple-400 mb-1">Join Ghar Tak</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm">Discover your neighborhood</p>
         </div>
-        <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+        <SignUp
+          routing="path"
+          path={`${basePath}/sign-up`}
+          signInUrl={`${basePath}/sign-in`}
+          fallbackRedirectUrl={returnUrl()}
+          signInFallbackRedirectUrl={returnUrl()}
+        />
       </div>
     </div>
   );
@@ -228,15 +298,16 @@ function ClerkProviderWithRoutes() {
       <QueryClientProvider client={queryClient}>
         <ClerkQueryCacheInvalidator />
         <ApiClientAuthSync />
-        <DataProvider>
-          <CartProvider>
+        <ReturnPathRecorder />
+        <CartProvider>
+          <LocationChooserProvider>
             <Layout>
               <Router />
             </Layout>
-            <CartDrawer />
-            <Toaster />
-          </CartProvider>
-        </DataProvider>
+          </LocationChooserProvider>
+          <CartDrawer />
+          <Toaster />
+        </CartProvider>
       </QueryClientProvider>
     </ClerkProvider>
   );

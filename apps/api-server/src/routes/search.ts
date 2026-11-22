@@ -1,12 +1,33 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, providersTable, productsTable, servicesTable } from "@workspace/db";
-import { ilike, or } from "drizzle-orm";
+import { and, eq, ilike, or } from "drizzle-orm";
+import { z } from "zod";
+import { providerJson } from "../lib/provider-json";
 
 const router: IRouter = Router();
 
+// The query comes straight from the URL: a NUL byte would make Postgres fail (a 500), and a
+// repeated ?q= arrives as an array.
+const SearchQuery = z.object({
+  q: z
+    .string()
+    .max(200)
+    .refine((value) => !value.includes("\0"), "Invalid characters")
+    .optional(),
+  type: z.enum(["all", "providers", "products", "services"]).default("all"),
+});
+
 // GET /api/search?q=&type=all
 router.get("/search", async (req: Request, res: Response) => {
-  const { q, type = "all" } = req.query as { q: string; type?: string };
+  const parsed = SearchQuery.safeParse({ q: req.query.q, type: req.query.type });
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Invalid request",
+      fields: parsed.error.issues.map((issue) => ({ field: issue.path.join("."), message: issue.message })),
+    });
+    return;
+  }
+  const { q, type } = parsed.data;
 
   if (!q || q.trim().length < 1) {
     res.json({ providers: [], products: [], services: [] });
@@ -39,11 +60,15 @@ router.get("/search", async (req: Request, res: Response) => {
         .select()
         .from(productsTable)
         .where(
-          or(
-            ilike(productsTable.name, term),
-            ilike(productsTable.description, term),
-            ilike(productsTable.category, term),
-          )!,
+          // Search is for shoppers: leave out what the store has switched off.
+          and(
+            eq(productsTable.isAvailable, true),
+            or(
+              ilike(productsTable.name, term),
+              ilike(productsTable.description, term),
+              ilike(productsTable.category, term),
+            ),
+          ),
         )
         .limit(10);
     }
@@ -53,39 +78,20 @@ router.get("/search", async (req: Request, res: Response) => {
         .select()
         .from(servicesTable)
         .where(
-          or(
-            ilike(servicesTable.name, term),
-            ilike(servicesTable.description, term),
-            ilike(servicesTable.category, term),
-          )!,
+          and(
+            eq(servicesTable.isAvailable, true),
+            or(
+              ilike(servicesTable.name, term),
+              ilike(servicesTable.description, term),
+              ilike(servicesTable.category, term),
+            ),
+          ),
         )
         .limit(10);
     }
 
     res.json({
-      providers: providers.map((p) => ({
-        id: p.id,
-        userId: p.userId,
-        name: p.name,
-        type: p.type,
-        description: p.description ?? null,
-        address: p.address ?? null,
-        phone: p.phone ?? null,
-        email: p.email ?? null,
-        avatarUrl: p.avatarUrl ?? null,
-        coverUrl: p.coverUrl ?? null,
-        isOpen: p.isOpen ?? true,
-        openingHours: p.openingHours ?? null,
-        deliveryRadius: p.deliveryRadius ?? null,
-        lat: p.lat ? Number(p.lat) : null,
-        lng: p.lng ? Number(p.lng) : null,
-        rating: Number(p.rating ?? 0),
-        reviewCount: p.reviewCount ?? 0,
-        isFavorite: false,
-        planId: p.planId ?? null,
-        category: p.category ?? null,
-        createdAt: p.createdAt.toISOString(),
-      })),
+      providers: providers.map((p) => providerJson(p)),
       products: products.map((p) => ({
         id: p.id,
         providerId: p.providerId,

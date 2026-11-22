@@ -1,24 +1,33 @@
-import { useListCategories, useListProviders } from '@workspace/api-client-react';
+import { useListCategories, useListProviders, getListProvidersQueryKey } from '@workspace/api-client-react';
 import ServiceCard from '@/components/shared/ServiceCard';
+import { NearbyScopeSwitch, NoneNearby } from '@/components/shared/NearbyScope';
+import LoadError from '@/components/shared/LoadError';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'wouter';
 import SearchInput from '@/components/shared/SearchInput';
 import { Users, Loader2 } from 'lucide-react'; 
 import * as Icons from 'lucide-react';
 import { useMemo } from 'react';
-import { useLocation } from '@/hooks/useLocation';
-import { providerDistance, sortByDistance } from '@/lib/geo';
+import { useNearbyScope } from '@/hooks/useNearby';
+import { providerDistance, sortByDistance } from '@workspace/geo';
 
 export default function AllServicesPage() {
-  const { data: categories, isLoading: categoriesLoading } = useListCategories({ query: { queryKey: ["listCategories"] } });
-  const { data: providers, isLoading: providersLoading } = useListProviders({ type: 'service' }, { query: { queryKey: ["listProviders", { type: 'service' }] } });
-  const { location, hasRealLocation } = useLocation();
-  const origin = hasRealLocation ? location : null;
+  const {
+    data: categories,
+    isLoading: categoriesLoading,
+    isError: categoriesFailed,
+    isFetching: categoriesFetching,
+    refetch: refetchCategories,
+  } = useListCategories({ query: { queryKey: ["listCategories"] } });
+  const { point, filterPoint, showAll, approximate } = useNearbyScope();
+  // With a location the server sends only the providers whose service area covers it, nearest first.
+  const params = { type: 'service' as const, ...filterPoint };
+  const { data: providers, isLoading: providersLoading, isError: providersFailed, isFetching: providersFetching, refetch: refetchProviders } = useListProviders(params, { query: { queryKey: getListProvidersQueryKey(params) } });
 
-  const sortedProviders = useMemo(
-    () => sortByDistance(Array.isArray(providers) ? providers : [], origin),
-    [providers, origin]
-  );
+  const sortedProviders = useMemo(() => {
+    const list = Array.isArray(providers) ? providers : [];
+    return filterPoint ? list : sortByDistance(list, point);
+  }, [providers, filterPoint, point]);
 
   return (
     <div className="space-y-12">
@@ -34,6 +43,8 @@ export default function AllServicesPage() {
         </div>
         {categoriesLoading ? (
           <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>
+        ) : categoriesFailed && !categories ? (
+          <LoadError what="service categories" retrying={categoriesFetching} onRetry={() => void refetchCategories()} />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {(Array.isArray(categories) ? categories : []).map((category) => {
@@ -57,15 +68,29 @@ export default function AllServicesPage() {
       </section>
 
       <section>
-        <h2 className="text-2xl font-semibold font-headline mb-6">Featured Service Providers</h2>
+        <div className="mb-6">
+          <h2 className="text-2xl font-semibold font-headline">{filterPoint ? 'Service Providers Near You' : 'All Service Providers'}</h2>
+          <NearbyScopeSwitch path="/services" showAll={showAll} approximate={approximate} known={point !== null} />
+        </div>
         {providersLoading ? (
           <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>
+        ) : providersFailed && !providers ? (
+          <LoadError what="service providers" retrying={providersFetching} onRetry={() => void refetchProviders()} />
         ) : sortedProviders.length === 0 ? (
-          <p className="text-muted-foreground text-center py-10">No service providers available at the moment.</p>
+          filterPoint ? (
+            <NoneNearby message="No service providers cover your location yet." allHref="/services?view=all" allLabel="See all service providers" />
+          ) : (
+            <p className="text-muted-foreground text-center py-10">No service providers available at the moment.</p>
+          )
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedProviders.slice(0,6).map((provider) => (
-              <ServiceCard key={provider.id} serviceProvider={provider} distanceKm={providerDistance(origin, provider)} />
+            {sortedProviders.map((provider) => (
+              <ServiceCard
+                key={provider.id}
+                serviceProvider={provider}
+                distanceKm={provider.distanceKm ?? providerDistance(point, provider)}
+                approximate={approximate}
+              />
             ))}
           </div>
         )}

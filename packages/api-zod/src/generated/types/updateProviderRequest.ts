@@ -5,17 +5,34 @@
  * Ghar Tak — hyperlocal services & delivery SaaS API
  * OpenAPI spec version: 0.2.0
  */
+import type { DeliveryRadiusKm } from './deliveryRadiusKm';
+import type { Latitude } from './latitude';
+import type { Longitude } from './longitude';
 
 export interface UpdateProviderRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
   name?: string;
+  /** @maxLength 2000 */
   description?: string;
+  /** @maxLength 500 */
   address?: string;
+  /** @maxLength 50 */
   phone?: string;
+  /** @maxLength 255 */
   email?: string;
   isOpen?: boolean;
+  /** @maxLength 100 */
   openingHours?: string;
-  deliveryRadius?: string;
+  deliveryRadiusKm?: DeliveryRadiusKm;
+  lat?: Latitude;
+  lng?: Longitude;
+  /** @maxLength 2048 */
   avatarUrl?: string;
+  /** @maxLength 2048 */
   coverUrl?: string;
+  /** @maxLength 100 */
   category?: string;
 }

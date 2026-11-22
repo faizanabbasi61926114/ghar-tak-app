@@ -34,9 +34,15 @@ export const GetMeResponse = zod.object({
 /**
  * @summary Update the authenticated user's profile
  */
+export const updateMeBodyNameMax = 120;
+
+export const updateMeBodyPhoneMax = 50;
+
+
+
 export const UpdateMeBody = zod.object({
-  "name": zod.string().optional(),
-  "phone": zod.string().optional()
+  "name": zod.string().max(updateMeBodyNameMax).optional(),
+  "phone": zod.string().max(updateMeBodyPhoneMax).optional()
 })
 
 export const UpdateMeResponse = zod.object({
@@ -67,12 +73,20 @@ export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
 /**
  * @summary List all providers (stores & service providers)
  */
+export const listProvidersQueryLatMin = -90;
+export const listProvidersQueryLatMax = 90;
+
+export const listProvidersQueryLngMin = -180;
+export const listProvidersQueryLngMax = 180;
+
+
+
 export const ListProvidersQueryParams = zod.object({
   "category": zod.coerce.string().optional(),
   "type": zod.enum(['store', 'service', 'restaurant']).optional(),
   "q": zod.coerce.string().optional(),
-  "lat": zod.coerce.number().optional(),
-  "lng": zod.coerce.number().optional()
+  "lat": zod.coerce.number().min(listProvidersQueryLatMin).max(listProvidersQueryLatMax).optional().describe('With lng, lists only the providers whose delivery radius reaches this point, nearest first, each with distanceKm.'),
+  "lng": zod.coerce.number().min(listProvidersQueryLngMin).max(listProvidersQueryLngMax).optional()
 })
 
 export const ListProvidersResponseItem = zod.object({
@@ -88,9 +102,10 @@ export const ListProvidersResponseItem = zod.object({
   "coverUrl": zod.string().nullish(),
   "isOpen": zod.boolean(),
   "openingHours": zod.string().nullish(),
-  "deliveryRadius": zod.string().nullish(),
+  "deliveryRadiusKm": zod.number().nullish().describe('How far the provider delivers or travels, in km in a straight line. Null means the default (5 km).'),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
+  "distanceKm": zod.number().optional().describe('Straight-line km from the lat\/lng the list was asked for. Only sent on such lists.'),
   "rating": zod.number(),
   "reviewCount": zod.number(),
   "isFavorite": zod.boolean().optional(),
@@ -105,16 +120,43 @@ export const ListProvidersResponse = zod.array(ListProvidersResponseItem)
 /**
  * @summary Register as a provider (business onboarding)
  */
+export const createProviderBodyNameMax = 255;
+
+export const createProviderBodyDescriptionMax = 2000;
+
+export const createProviderBodyAddressMax = 500;
+
+export const createProviderBodyPhoneMax = 50;
+
+export const createProviderBodyEmailMax = 255;
+
+export const createProviderBodyCategoryMax = 100;
+
+export const createProviderBodyOpeningHoursMax = 100;
+
+export const createProviderBodyDeliveryRadiusKmMin = 0.5;
+export const createProviderBodyDeliveryRadiusKmMax = 50;
+
+export const createProviderBodyLatMin = -90;
+export const createProviderBodyLatMax = 90;
+
+export const createProviderBodyLngMin = -180;
+export const createProviderBodyLngMax = 180;
+
+
+
 export const CreateProviderBody = zod.object({
-  "name": zod.string(),
+  "name": zod.string().min(1).max(createProviderBodyNameMax),
   "type": zod.enum(['store', 'service', 'restaurant']),
-  "description": zod.string().optional(),
-  "address": zod.string().optional(),
-  "phone": zod.string().optional(),
-  "email": zod.string().optional(),
-  "category": zod.string().optional(),
-  "openingHours": zod.string().optional(),
-  "deliveryRadius": zod.string().optional()
+  "description": zod.string().max(createProviderBodyDescriptionMax).optional(),
+  "address": zod.string().max(createProviderBodyAddressMax).optional(),
+  "phone": zod.string().max(createProviderBodyPhoneMax).optional(),
+  "email": zod.string().max(createProviderBodyEmailMax).optional(),
+  "category": zod.string().max(createProviderBodyCategoryMax).optional(),
+  "openingHours": zod.string().max(createProviderBodyOpeningHoursMax).optional(),
+  "deliveryRadiusKm": zod.number().min(createProviderBodyDeliveryRadiusKmMin).max(createProviderBodyDeliveryRadiusKmMax).optional().describe('Delivery or service radius in km. The limits match @workspace\/geo.'),
+  "lat": zod.number().min(createProviderBodyLatMin).max(createProviderBodyLatMax).optional(),
+  "lng": zod.number().min(createProviderBodyLngMin).max(createProviderBodyLngMax).optional()
 })
 
 
@@ -134,9 +176,10 @@ export const GetMyProviderResponse = zod.object({
   "coverUrl": zod.string().nullish(),
   "isOpen": zod.boolean(),
   "openingHours": zod.string().nullish(),
-  "deliveryRadius": zod.string().nullish(),
+  "deliveryRadiusKm": zod.number().nullish().describe('How far the provider delivers or travels, in km in a straight line. Null means the default (5 km).'),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
+  "distanceKm": zod.number().optional().describe('Straight-line km from the lat\/lng the list was asked for. Only sent on such lists.'),
   "rating": zod.number(),
   "reviewCount": zod.number(),
   "isFavorite": zod.boolean().optional(),
@@ -150,18 +193,49 @@ export const GetMyProviderResponse = zod.object({
 /**
  * @summary Update the authenticated user's provider profile
  */
+export const updateMyProviderBodyNameMax = 255;
+
+export const updateMyProviderBodyDescriptionMax = 2000;
+
+export const updateMyProviderBodyAddressMax = 500;
+
+export const updateMyProviderBodyPhoneMax = 50;
+
+export const updateMyProviderBodyEmailMax = 255;
+
+export const updateMyProviderBodyOpeningHoursMax = 100;
+
+export const updateMyProviderBodyDeliveryRadiusKmMin = 0.5;
+export const updateMyProviderBodyDeliveryRadiusKmMax = 50;
+
+export const updateMyProviderBodyLatMin = -90;
+export const updateMyProviderBodyLatMax = 90;
+
+export const updateMyProviderBodyLngMin = -180;
+export const updateMyProviderBodyLngMax = 180;
+
+export const updateMyProviderBodyAvatarUrlMax = 2048;
+
+export const updateMyProviderBodyCoverUrlMax = 2048;
+
+export const updateMyProviderBodyCategoryMax = 100;
+
+
+
 export const UpdateMyProviderBody = zod.object({
-  "name": zod.string().optional(),
-  "description": zod.string().optional(),
-  "address": zod.string().optional(),
-  "phone": zod.string().optional(),
-  "email": zod.string().optional(),
+  "name": zod.string().min(1).max(updateMyProviderBodyNameMax).optional(),
+  "description": zod.string().max(updateMyProviderBodyDescriptionMax).optional(),
+  "address": zod.string().max(updateMyProviderBodyAddressMax).optional(),
+  "phone": zod.string().max(updateMyProviderBodyPhoneMax).optional(),
+  "email": zod.string().max(updateMyProviderBodyEmailMax).optional(),
   "isOpen": zod.boolean().optional(),
-  "openingHours": zod.string().optional(),
-  "deliveryRadius": zod.string().optional(),
-  "avatarUrl": zod.string().optional(),
-  "coverUrl": zod.string().optional(),
-  "category": zod.string().optional()
+  "openingHours": zod.string().max(updateMyProviderBodyOpeningHoursMax).optional(),
+  "deliveryRadiusKm": zod.number().min(updateMyProviderBodyDeliveryRadiusKmMin).max(updateMyProviderBodyDeliveryRadiusKmMax).optional().describe('Delivery or service radius in km. The limits match @workspace\/geo.'),
+  "lat": zod.number().min(updateMyProviderBodyLatMin).max(updateMyProviderBodyLatMax).optional(),
+  "lng": zod.number().min(updateMyProviderBodyLngMin).max(updateMyProviderBodyLngMax).optional(),
+  "avatarUrl": zod.string().max(updateMyProviderBodyAvatarUrlMax).optional(),
+  "coverUrl": zod.string().max(updateMyProviderBodyCoverUrlMax).optional(),
+  "category": zod.string().max(updateMyProviderBodyCategoryMax).optional()
 })
 
 export const UpdateMyProviderResponse = zod.object({
@@ -177,9 +251,10 @@ export const UpdateMyProviderResponse = zod.object({
   "coverUrl": zod.string().nullish(),
   "isOpen": zod.boolean(),
   "openingHours": zod.string().nullish(),
-  "deliveryRadius": zod.string().nullish(),
+  "deliveryRadiusKm": zod.number().nullish().describe('How far the provider delivers or travels, in km in a straight line. Null means the default (5 km).'),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
+  "distanceKm": zod.number().optional().describe('Straight-line km from the lat\/lng the list was asked for. Only sent on such lists.'),
   "rating": zod.number(),
   "reviewCount": zod.number(),
   "isFavorite": zod.boolean().optional(),
@@ -210,9 +285,10 @@ export const GetProviderResponse = zod.object({
   "coverUrl": zod.string().nullish(),
   "isOpen": zod.boolean(),
   "openingHours": zod.string().nullish(),
-  "deliveryRadius": zod.string().nullish(),
+  "deliveryRadiusKm": zod.number().nullish().describe('How far the provider delivers or travels, in km in a straight line. Null means the default (5 km).'),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
+  "distanceKm": zod.number().optional().describe('Straight-line km from the lat\/lng the list was asked for. Only sent on such lists.'),
   "rating": zod.number(),
   "reviewCount": zod.number(),
   "isFavorite": zod.boolean().optional(),
@@ -257,14 +333,27 @@ export const CreateProductParams = zod.object({
   "providerId": zod.coerce.string()
 })
 
+export const createProductBodyNameMax = 255;
+
+export const createProductBodyPriceMin = 0;
+export const createProductBodyPriceMax = 99999999.99;
+
+export const createProductBodyStockMin = 0;
+
+export const createProductBodySkuMax = 100;
+
+export const createProductBodyCategoryMax = 100;
+
+
+
 export const CreateProductBody = zod.object({
-  "name": zod.string(),
+  "name": zod.string().min(1).max(createProductBodyNameMax),
   "description": zod.string().optional(),
-  "price": zod.number(),
-  "stock": zod.number(),
-  "sku": zod.string().optional(),
+  "price": zod.number().min(createProductBodyPriceMin).max(createProductBodyPriceMax),
+  "stock": zod.number().min(createProductBodyStockMin),
+  "sku": zod.string().max(createProductBodySkuMax).optional(),
   "imageUrl": zod.string().optional(),
-  "category": zod.string()
+  "category": zod.string().max(createProductBodyCategoryMax)
 })
 
 
@@ -275,14 +364,27 @@ export const UpdateProductParams = zod.object({
   "productId": zod.coerce.string()
 })
 
+export const updateProductBodyNameMax = 255;
+
+export const updateProductBodyPriceMin = 0;
+export const updateProductBodyPriceMax = 99999999.99;
+
+export const updateProductBodyStockMin = 0;
+
+export const updateProductBodySkuMax = 100;
+
+export const updateProductBodyCategoryMax = 100;
+
+
+
 export const UpdateProductBody = zod.object({
-  "name": zod.string().optional(),
-  "description": zod.string().optional(),
-  "price": zod.number().optional(),
-  "stock": zod.number().optional(),
-  "sku": zod.string().optional(),
-  "imageUrl": zod.string().optional(),
-  "category": zod.string().optional(),
+  "name": zod.string().min(1).max(updateProductBodyNameMax).optional(),
+  "description": zod.string().nullish(),
+  "price": zod.number().min(updateProductBodyPriceMin).max(updateProductBodyPriceMax).optional(),
+  "stock": zod.number().min(updateProductBodyStockMin).optional(),
+  "sku": zod.string().max(updateProductBodySkuMax).nullish(),
+  "imageUrl": zod.string().nullish(),
+  "category": zod.string().max(updateProductBodyCategoryMax).optional(),
   "isAvailable": zod.boolean().optional()
 })
 
@@ -337,12 +439,22 @@ export const CreateServiceParams = zod.object({
   "providerId": zod.coerce.string()
 })
 
+export const createServiceBodyNameMax = 255;
+
+export const createServiceBodyPriceRangeMax = 100;
+
+export const createServiceBodyDurationMax = 100;
+
+export const createServiceBodyCategoryMax = 100;
+
+
+
 export const CreateServiceBody = zod.object({
-  "name": zod.string(),
+  "name": zod.string().min(1).max(createServiceBodyNameMax),
   "description": zod.string().optional(),
-  "priceRange": zod.string(),
-  "duration": zod.string().optional(),
-  "category": zod.string()
+  "priceRange": zod.string().min(1).max(createServiceBodyPriceRangeMax),
+  "duration": zod.string().max(createServiceBodyDurationMax).optional(),
+  "category": zod.string().max(createServiceBodyCategoryMax)
 })
 
 
@@ -353,12 +465,22 @@ export const UpdateServiceParams = zod.object({
   "serviceId": zod.coerce.string()
 })
 
+export const updateServiceBodyNameMax = 255;
+
+export const updateServiceBodyPriceRangeMax = 100;
+
+export const updateServiceBodyDurationMax = 100;
+
+export const updateServiceBodyCategoryMax = 100;
+
+
+
 export const UpdateServiceBody = zod.object({
-  "name": zod.string().optional(),
-  "description": zod.string().optional(),
-  "priceRange": zod.string().optional(),
-  "duration": zod.string().optional(),
-  "category": zod.string().optional(),
+  "name": zod.string().min(1).max(updateServiceBodyNameMax).optional(),
+  "description": zod.string().nullish(),
+  "priceRange": zod.string().min(1).max(updateServiceBodyPriceRangeMax).optional(),
+  "duration": zod.string().max(updateServiceBodyDurationMax).nullish(),
+  "category": zod.string().max(updateServiceBodyCategoryMax).optional(),
   "isAvailable": zod.boolean().optional()
 })
 
@@ -386,6 +508,11 @@ export const DeleteServiceParams = zod.object({
 /**
  * @summary List orders for the authenticated user (customer view)
  */
+
+export const listMyOrdersResponseItemsItemUnitPriceMin = 0;
+
+
+
 export const ListMyOrdersResponseItem = zod.object({
   "id": zod.string(),
   "customerId": zod.string(),
@@ -396,13 +523,15 @@ export const ListMyOrdersResponseItem = zod.object({
   "total": zod.number(),
   "paymentMethod": zod.enum(['cash_on_delivery', 'jazzcash', 'easypaisa', 'card']),
   "deliveryAddress": zod.string().nullish(),
+  "deliveryPhone": zod.string().nullish(),
+  "deliveryInstructions": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "items": zod.array(zod.object({
   "productId": zod.string().nullable(),
   "serviceId": zod.string().nullish(),
   "name": zod.string(),
-  "quantity": zod.number(),
-  "unitPrice": zod.number()
+  "quantity": zod.number().min(1),
+  "unitPrice": zod.number().min(listMyOrdersResponseItemsItemUnitPriceMin).describe('When placing an order this is ignored; the server uses the product\'s current price.')
 })),
   "deliveryFee": zod.number(),
   "discount": zod.number(),
@@ -420,19 +549,29 @@ export const ListMyOrdersResponse = zod.array(ListMyOrdersResponseItem)
 /**
  * @summary Place a new order
  */
+
+
+export const createOrderBodyItemsItemUnitPriceMin = 0;
+
+
+export const createOrderBodyDeliveryFeeMin = 0;
+
+
+
 export const CreateOrderBody = zod.object({
-  "providerId": zod.string(),
+  "providerId": zod.string().min(1),
   "items": zod.array(zod.object({
   "productId": zod.string().nullable(),
   "serviceId": zod.string().nullish(),
   "name": zod.string(),
-  "quantity": zod.number(),
-  "unitPrice": zod.number()
-})),
+  "quantity": zod.number().min(1),
+  "unitPrice": zod.number().min(createOrderBodyItemsItemUnitPriceMin).describe('When placing an order this is ignored; the server uses the product\'s current price.')
+})).min(1),
   "paymentMethod": zod.enum(['cash_on_delivery', 'jazzcash', 'easypaisa', 'card']),
+  "addressId": zod.string().optional().describe('One of the customer\'s saved addresses. Its street, city, phone and instructions are copied onto the order, and deliveryAddress is ignored.'),
   "deliveryAddress": zod.string().optional(),
   "notes": zod.string().optional(),
-  "deliveryFee": zod.number().optional(),
+  "deliveryFee": zod.number().min(createOrderBodyDeliveryFeeMin).optional().describe('Ignored; the server calculates the delivery fee.'),
   "couponCode": zod.string().optional()
 })
 
@@ -444,6 +583,11 @@ export const GetOrderParams = zod.object({
   "orderId": zod.coerce.string()
 })
 
+
+export const getOrderResponseItemsItemUnitPriceMin = 0;
+
+
+
 export const GetOrderResponse = zod.object({
   "id": zod.string(),
   "customerId": zod.string(),
@@ -454,13 +598,15 @@ export const GetOrderResponse = zod.object({
   "total": zod.number(),
   "paymentMethod": zod.enum(['cash_on_delivery', 'jazzcash', 'easypaisa', 'card']),
   "deliveryAddress": zod.string().nullish(),
+  "deliveryPhone": zod.string().nullish(),
+  "deliveryInstructions": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "items": zod.array(zod.object({
   "productId": zod.string().nullable(),
   "serviceId": zod.string().nullish(),
   "name": zod.string(),
-  "quantity": zod.number(),
-  "unitPrice": zod.number()
+  "quantity": zod.number().min(1),
+  "unitPrice": zod.number().min(getOrderResponseItemsItemUnitPriceMin).describe('When placing an order this is ignored; the server uses the product\'s current price.')
 })),
   "deliveryFee": zod.number(),
   "discount": zod.number(),
@@ -485,6 +631,11 @@ export const UpdateOrderStatusBody = zod.object({
   "status": zod.enum(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'])
 })
 
+
+export const updateOrderStatusResponseItemsItemUnitPriceMin = 0;
+
+
+
 export const UpdateOrderStatusResponse = zod.object({
   "id": zod.string(),
   "customerId": zod.string(),
@@ -495,13 +646,15 @@ export const UpdateOrderStatusResponse = zod.object({
   "total": zod.number(),
   "paymentMethod": zod.enum(['cash_on_delivery', 'jazzcash', 'easypaisa', 'card']),
   "deliveryAddress": zod.string().nullish(),
+  "deliveryPhone": zod.string().nullish(),
+  "deliveryInstructions": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "items": zod.array(zod.object({
   "productId": zod.string().nullable(),
   "serviceId": zod.string().nullish(),
   "name": zod.string(),
-  "quantity": zod.number(),
-  "unitPrice": zod.number()
+  "quantity": zod.number().min(1),
+  "unitPrice": zod.number().min(updateOrderStatusResponseItemsItemUnitPriceMin).describe('When placing an order this is ignored; the server uses the product\'s current price.')
 })),
   "deliveryFee": zod.number(),
   "discount": zod.number(),
@@ -518,6 +671,11 @@ export const UpdateOrderStatusResponse = zod.object({
 /**
  * @summary List orders received by the authenticated provider
  */
+
+export const listProviderOrdersResponseItemsItemUnitPriceMin = 0;
+
+
+
 export const ListProviderOrdersResponseItem = zod.object({
   "id": zod.string(),
   "customerId": zod.string(),
@@ -528,13 +686,15 @@ export const ListProviderOrdersResponseItem = zod.object({
   "total": zod.number(),
   "paymentMethod": zod.enum(['cash_on_delivery', 'jazzcash', 'easypaisa', 'card']),
   "deliveryAddress": zod.string().nullish(),
+  "deliveryPhone": zod.string().nullish(),
+  "deliveryInstructions": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "items": zod.array(zod.object({
   "productId": zod.string().nullable(),
   "serviceId": zod.string().nullish(),
   "name": zod.string(),
-  "quantity": zod.number(),
-  "unitPrice": zod.number()
+  "quantity": zod.number().min(1),
+  "unitPrice": zod.number().min(listProviderOrdersResponseItemsItemUnitPriceMin).describe('When placing an order this is ignored; the server uses the product\'s current price.')
 })),
   "deliveryFee": zod.number(),
   "discount": zod.number(),
@@ -621,9 +781,13 @@ export const DeleteAddressResponse = zod.object({
 /**
  * @summary Validate a coupon code against an order subtotal
  */
+export const validateCouponBodySubtotalMin = 0;
+
+
+
 export const ValidateCouponBody = zod.object({
   "code": zod.string(),
-  "subtotal": zod.number()
+  "subtotal": zod.number().min(validateCouponBodySubtotalMin)
 })
 
 export const ValidateCouponResponse = zod.object({
@@ -966,9 +1130,10 @@ export const SearchResponse = zod.object({
   "coverUrl": zod.string().nullish(),
   "isOpen": zod.boolean(),
   "openingHours": zod.string().nullish(),
-  "deliveryRadius": zod.string().nullish(),
+  "deliveryRadiusKm": zod.number().nullish().describe('How far the provider delivers or travels, in km in a straight line. Null means the default (5 km).'),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
+  "distanceKm": zod.number().optional().describe('Straight-line km from the lat\/lng the list was asked for. Only sent on such lists.'),
   "rating": zod.number(),
   "reviewCount": zod.number(),
   "isFavorite": zod.boolean().optional(),

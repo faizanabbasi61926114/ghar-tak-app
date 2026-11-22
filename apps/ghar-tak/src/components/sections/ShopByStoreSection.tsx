@@ -1,12 +1,13 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useListProviders, useListProviderProducts } from '@workspace/api-client-react';
+import { useState, useMemo } from 'react';
+import { useListProviders, useListProviderProducts, getListProvidersQueryKey } from '@workspace/api-client-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ProductCard from '@/components/shared/ProductCard';
 import { ShoppingBag, Loader2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { useLocation } from '@/hooks/useLocation';
-import { sortByDistance } from '@/lib/geo';
+import { useNearbyFilter } from '@/hooks/useNearby';
+import LoadError from '@/components/shared/LoadError';
+import { sortByDistance } from '@workspace/geo';
 
 function StoreProducts({ storeId, storeName }: { storeId: string; storeName: string }) {
   const { data: products, isLoading } = useListProviderProducts(storeId, undefined, { query: { enabled: !!storeId, queryKey: ["listProviderProducts", storeId] } });
@@ -27,7 +28,7 @@ function StoreProducts({ storeId, storeName }: { storeId: string; storeName: str
       <div className="flex w-max space-x-4 p-4">
         {products.map((product) => (
           <div key={product.id} className="w-64 whitespace-normal">
-            <ProductCard product={product} />
+            <ProductCard product={product} providerId={storeId} providerName={storeName} />
           </div>
         ))}
       </div>
@@ -37,22 +38,25 @@ function StoreProducts({ storeId, storeName }: { storeId: string; storeName: str
 }
 
 export default function ShopByStoreSection() {
-  const { data: stores, isLoading: storesLoading } = useListProviders({ type: 'store' }, { query: { queryKey: ["listProviders", { type: 'store' }] } });
+  // With a precise location the server sends only the stores that deliver there, nearest
+  // first; with a rough one every store is listed, nearest first by that rough location.
+  // Restaurants are listed with the stores (they sell through the same store page).
+  const { point, filterPoint } = useNearbyFilter();
+  const params = filterPoint ?? {};
+  const { data: providers, isLoading: storesLoading, isError: storesFailed, isFetching: storesFetching, refetch: refetchStores } = useListProviders(params, { query: { queryKey: getListProvidersQueryKey(params) } });
 
   const [selectedStoreId, setSelectedStoreId] = useState('');
-  const { location, hasRealLocation } = useLocation();
 
   const displayedStores = useMemo(() => {
-    const storeList = Array.isArray(stores) ? stores : [];
-    const origin = hasRealLocation ? location : null;
-    return sortByDistance(storeList, origin).slice(0, 3);
-  }, [stores, location, hasRealLocation]);
+    const stores = (Array.isArray(providers) ? providers : []).filter((p) => p.type !== 'service');
+    return (filterPoint ? stores : sortByDistance(stores, point)).slice(0, 3);
+  }, [providers, filterPoint, point]);
 
-  useEffect(() => {
-    if (displayedStores.length > 0 && !selectedStoreId) {
-      setSelectedStoreId(displayedStores[0].id);
-    }
-  }, [displayedStores, selectedStoreId]);
+  // When the location arrives the list changes, and the chosen store may drop out of
+  // the top three; fall back to the nearest one instead of showing an empty tab.
+  const activeStoreId = displayedStores.some((store) => store.id === selectedStoreId)
+    ? selectedStoreId
+    : (displayedStores[0]?.id ?? '');
 
   if (storesLoading) {
     return (
@@ -68,6 +72,18 @@ export default function ShopByStoreSection() {
     );
   }
 
+  if (storesFailed && !providers) {
+    return (
+      <section className="py-8 md:py-12">
+        <div className="flex items-center mb-8">
+          <ShoppingBag className="h-8 w-8 text-primary mr-3" />
+          <h2 className="text-3xl font-headline font-bold">Shop from Nearby Stores</h2>
+        </div>
+        <LoadError what="stores" retrying={storesFetching} onRetry={() => void refetchStores()} />
+      </section>
+    );
+  }
+
   if (displayedStores.length === 0) return null;
 
   return (
@@ -77,7 +93,7 @@ export default function ShopByStoreSection() {
         <h2 className="text-3xl font-headline font-bold">Shop from Nearby Stores</h2>
       </div>
 
-      <Tabs defaultValue={displayedStores[0]?.id} value={selectedStoreId} onValueChange={setSelectedStoreId} className="w-full">
+      <Tabs value={activeStoreId} onValueChange={setSelectedStoreId} className="w-full">
         <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 mb-6 h-auto">
           {displayedStores.map((store) => (
             <TabsTrigger key={store.id} value={store.id} className="py-3 text-md whitespace-normal">

@@ -1,9 +1,25 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, bookingsTable, providersTable, servicesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { displayName, ensureUser } from "../lib/users";
 import { requireAuth } from "./auth";
 
 const router: IRouter = Router();
+
+// Customers and providers are in Pakistan, so "today" follows Pakistan's calendar,
+// not the server's. Returns the day as a number (YYYYMMDD) so every year compares correctly.
+const karachiDate = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Karachi",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function calendarDay(date: Date): number {
+  const parts = karachiDate.formatToParts(date);
+  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return part("year") * 10000 + part("month") * 100 + part("day");
+}
 
 function mapBooking(b: any) {
   return {
@@ -47,6 +63,10 @@ router.post("/bookings", requireAuth, async (req: Request, res: Response) => {
     res.status(400).json({ error: "bookingDate is invalid" });
     return;
   }
+  if (calendarDay(bookingDate) < calendarDay(new Date())) {
+    res.status(400).json({ error: "bookingDate can't be in the past" });
+    return;
+  }
 
   try {
     const [provider] = await db
@@ -71,10 +91,17 @@ router.post("/bookings", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    if (!service.isAvailable) {
+      res.status(409).json({ error: `${service.name} isn't available right now.` });
+      return;
+    }
+
+    const customer = await ensureUser(clerkUserId);
     const [booking] = await db
       .insert(bookingsTable)
       .values({
         customerId: clerkUserId,
+        customerName: displayName(customer),
         providerId: provider.id,
         providerName: provider.name,
         serviceId: service.id,

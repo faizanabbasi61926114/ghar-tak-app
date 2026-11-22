@@ -42,6 +42,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { apiErrorReason, couldNotLoad } from '@/lib/api-error';
+import LoadError from '@/components/shared/LoadError';
 
 const TIMELINE_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'] as const;
 
@@ -66,15 +68,24 @@ const STATUS_STYLES: Record<string, string> = {
 const STEP_ICONS = [Clock, Check, Package, Truck, CheckCircle2];
 
 export default function OrderTrackingPage({ params }: { params: { id: string } }) {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const orderId = params.id;
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { addItems, openCart } = useCart();
 
-  const { data: order, isLoading, isError } = useGetOrder(orderId, {
-    query: { enabled: !!orderId && !!user, queryKey: getGetOrderQueryKey(orderId) },
+  const { data: order, isLoading, isError, error, isFetching, refetch } = useGetOrder(orderId, {
+    query: {
+      enabled: !!orderId && !!user,
+      queryKey: getGetOrderQueryKey(orderId),
+      // Follow the store's progress without a reload; stop once the order is finished.
+      refetchInterval: (query) => {
+        const status = query.state.data?.status;
+        if (!status || status === 'delivered' || status === 'cancelled') return false;
+        return 15000;
+      },
+    },
   });
 
   const { data: catalog } = useListProviderProducts(order?.providerId ?? '', undefined, {
@@ -94,7 +105,11 @@ export default function OrderTrackingPage({ params }: { params: { id: string } }
         setCancelOpen(false);
         toast({ title: 'Order cancelled', description: 'The store has been notified.' });
       },
-      onError: () => toast({ title: 'Could not cancel order', description: 'Please try again.', variant: 'destructive' }),
+      onError: (err) => {
+        // A 409 means the store already moved the order on (for example, shipped it).
+        queryClient.invalidateQueries({ queryKey: getGetOrderQueryKey(orderId) });
+        toast({ title: 'Could not cancel order', description: apiErrorReason(err) ?? 'Please try again.', variant: 'destructive' });
+      },
     },
   });
 
@@ -105,7 +120,7 @@ export default function OrderTrackingPage({ params }: { params: { id: string } }
         setComment('');
         toast({ title: 'Thanks for the review', description: 'Your rating helps other shoppers.' });
       },
-      onError: () => toast({ title: 'Could not submit review', variant: 'destructive' }),
+      onError: (err) => toast({ title: 'Could not submit review', description: apiErrorReason(err), variant: 'destructive' }),
     },
   });
 
@@ -143,11 +158,23 @@ export default function OrderTrackingPage({ params }: { params: { id: string } }
     }
 
     const result = addItems(items, currentOrder.providerId, currentOrder.providerName);
+    if (result === 'confirm') return; // the cart asks before replacing another store's items
+    if (result === 'none') {
+      toast({ title: 'Out of stock', description: 'None of these items are in stock right now.', variant: 'destructive' });
+      return;
+    }
+
+    const notes = [
+      unavailable > 0 ? `${unavailable} item${unavailable > 1 ? 's' : ''} no longer available were skipped.` : '',
+      result === 'limit' ? 'Some quantities were lowered to what the store has in stock.' : '',
+    ].filter(Boolean);
     openCart();
-    toast({
-      title: result === 'replaced' ? 'Cart replaced' : 'Items added to cart',
-      description: unavailable > 0 ? `${unavailable} item${unavailable > 1 ? 's' : ''} no longer available were skipped.` : undefined,
-    });
+    toast({ title: 'Items added to cart', description: notes.join(' ') || undefined });
+  }
+
+  // Wait for sign-in to load before deciding the customer is signed out.
+  if (!isLoaded) {
+    return <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
   }
 
   if (!user) {
@@ -164,7 +191,11 @@ export default function OrderTrackingPage({ params }: { params: { id: string } }
     return <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
   }
 
-  if (isError || !order) {
+  // A refresh that fails (the connection drops while the order is followed) keeps it on screen.
+  if (!order) {
+    if (isError && couldNotLoad(error)) {
+      return <LoadError what="order" retrying={isFetching} onRetry={() => void refetch()} />;
+    }
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center p-4">
         <AlertTriangle className="h-16 w-16 text-destructive mb-6" />

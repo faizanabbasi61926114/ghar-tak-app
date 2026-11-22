@@ -6,6 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Briefcase, Store, CheckCircle, Loader2 } from "lucide-react";
 import { Link, useLocation } from 'wouter';
 import { useToast } from "@/hooks/use-toast";
+import { apiErrorReason } from "@/lib/api-error";
+import CategorySelect from "@/components/shared/CategorySelect";
+import ShopLocationFields, { initialShopLocation, radiusProblem, shopLocationRequest } from "@/components/shared/ShopLocationFields";
+import { useCustomerPoint } from "@/hooks/useNearby";
 import { useCreateProvider } from "@workspace/api-client-react";
 import { useState } from "react";
 import { useUser } from "@clerk/react";
@@ -15,7 +19,11 @@ export default function BecomeProviderPage() {
   const { user, isLoaded } = useUser();
   const [, setLocation] = useLocation();
   const createProvider = useCreateProvider();
-  
+  // Sellers often sign up from the shop, so the map opens where the site last saw them.
+  const lastSeenAt = useCustomerPoint();
+  const [shopLocation, setShopLocation] = useState(initialShopLocation);
+  const radiusError = radiusProblem(shopLocation.radiusKm);
+
   const [formData, setFormData] = useState({
     name: "",
     type: "store",
@@ -28,6 +36,7 @@ export default function BecomeProviderPage() {
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+    if (radiusError) return;
     createProvider.mutate(
       {
         data: {
@@ -38,6 +47,7 @@ export default function BecomeProviderPage() {
           phone: formData.phone,
           category: formData.category,
           email: formData.email,
+          ...shopLocationRequest(shopLocation),
         }
       },
       {
@@ -51,7 +61,7 @@ export default function BecomeProviderPage() {
         onError: (err) => {
           toast({
             title: "Error",
-            description: "Failed to create provider account.",
+            description: apiErrorReason(err) ?? "Failed to create provider account.",
             variant: "destructive",
           });
         }
@@ -96,7 +106,11 @@ export default function BecomeProviderPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="businessType">Type of Business</Label>
-                  <select id="businessType" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" required value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})}>
+                  <select id="businessType" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" required value={formData.type} onChange={(e) => {
+                    // Stores and restaurants share one category list; only a switch to or from Service Provider changes it.
+                    const sameList = (e.target.value === "service") === (formData.type === "service");
+                    setFormData({...formData, type: e.target.value, category: sameList ? formData.category : ""});
+                  }}>
                     <option value="store">Store</option>
                     <option value="service">Service Provider</option>
                     <option value="restaurant">Restaurant</option>
@@ -104,24 +118,31 @@ export default function BecomeProviderPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
-                  <Input id="category" placeholder="e.g., Groceries, Plumbing, Fast Food" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} />
+                  <CategorySelect id="category" providerType={formData.type} value={formData.category} onChange={(category) => setFormData({...formData, category})} />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Business Description</Label>
-                <Textarea id="description" placeholder="Tell us a bit about what you offer..." rows={4} required value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+                <Textarea id="description" maxLength={2000} placeholder="Tell us a bit about what you offer..." rows={4} required value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="address">Business Address</Label>
-                  <Input id="address" placeholder="123 Main St, Anytown" required value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
+                  <Input id="address" placeholder="Shop no., street, area, city" required value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
                   <Input id="phone" placeholder="+92 300 1234567" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
                 </div>
               </div>
-              <Button type="submit" className="w-full text-lg py-6" disabled={createProvider.isPending}>
+              <ShopLocationFields providerType={formData.type} value={shopLocation} onChange={setShopLocation} openAt={lastSeenAt} />
+              {shopLocation.point === null && (
+                <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+                  You haven't pinned {formData.type === "service" ? "where you work from" : "your shop"} on the map yet.
+                  You can still sign up, but customers won't see you in their "near me" lists until you do.
+                </p>
+              )}
+              <Button type="submit" className="w-full text-lg py-6" disabled={createProvider.isPending || radiusError !== null}>
                 {createProvider.isPending ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
                 Submit Registration
               </Button>

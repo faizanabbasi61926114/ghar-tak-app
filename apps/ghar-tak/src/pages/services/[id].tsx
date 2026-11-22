@@ -7,11 +7,11 @@ import {
   useListAddresses,
   useListProviderReviews,
   useListProviderServices,
+  useSendProviderMessage,
   type Service,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useLocation } from '@/hooks/useLocation';
-import { formatDistance, providerDistance } from '@/lib/geo';
+import DeliveryReach from '@/components/shared/DeliveryReach';
 import {
   ArrowLeft,
   BadgeCheck,
@@ -21,7 +21,6 @@ import {
   Loader2,
   MapPin,
   MessageSquare,
-  Navigation,
   Phone,
   Send,
   Star,
@@ -36,6 +35,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { couldNotLoad } from '@/lib/api-error';
+import LoadError from '@/components/shared/LoadError';
 
 const TIME_SLOTS = [
   '09:00 - 11:00',
@@ -56,9 +57,8 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
   const [, navigate] = useRouterLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { location, hasRealLocation } = useLocation();
 
-  const { data: provider, isLoading, isError } = useGetProvider(params.id, {
+  const { data: provider, isLoading, isError, error, isFetching, refetch } = useGetProvider(params.id, {
     query: { enabled: !!params.id, queryKey: ['getProvider', params.id] },
   });
   const { data: services, isLoading: servicesLoading } = useListProviderServices(params.id, {
@@ -83,11 +83,22 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
   const [booked, setBooked] = useState<{ id: string; date: string; slot: string; service: string } | null>(null);
 
   const [msgOpen, setMsgOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [messageDraft, setMessageDraft] = useState('');
+
+  // Messages go into the provider's chat inbox, like on the store page.
+  const sendMessage = useSendProviderMessage({
+    mutation: {
+      onSuccess: (data) => {
+        setMsgOpen(false);
+        setMessageDraft('');
+        toast({ title: 'Message sent', description: `Chat opened with ${provider?.name ?? 'the provider'}.` });
+        navigate(`/messages?c=${data.conversationId}`);
+      },
+      onError: (error) => {
+        toast({ variant: 'destructive', title: 'Message failed', description: error.message });
+      },
+    },
+  });
 
   const createBooking = useCreateBooking({
     mutation: {
@@ -107,13 +118,6 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
       },
     },
   });
-
-  useEffect(() => {
-    if (user) {
-      setName(`${user.firstName ?? ''} ${user.lastName ?? ''}`.trim());
-      setEmail(user.primaryEmailAddress?.emailAddress ?? '');
-    }
-  }, [user]);
 
   const defaultAddress = useMemo(() => {
     const list = Array.isArray(addresses) ? addresses : [];
@@ -146,6 +150,10 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
       toast({ title: 'Add your address', description: 'The provider needs to know where to come.', variant: 'destructive' });
       return;
     }
+    if (!bookingDate || bookingDate < todayInputValue()) {
+      toast({ title: 'Choose a date', description: 'Pick today or a later day for the visit.', variant: 'destructive' });
+      return;
+    }
     createBooking.mutate({
       data: {
         providerId: provider.id,
@@ -158,29 +166,29 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
     });
   }
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSending(true);
-    try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, message, providerId: params.id, providerName: provider?.name }),
-      });
-      if (!res.ok) throw new Error('Failed');
-      setSent(true);
-    } catch {
-      toast({ variant: 'destructive', title: 'Send failed', description: 'Could not send your message. Please try again.' });
-    } finally {
-      setSending(false);
+  function openMessageDialog() {
+    if (!user) {
+      navigate('/sign-in');
+      return;
     }
-  };
+    setMsgOpen(true);
+  }
+
+  function handleSend() {
+    const content = messageDraft.trim();
+    if (!content || sendMessage.isPending) return;
+    sendMessage.mutate({ providerId: params.id, data: { content } });
+  }
 
   if (isLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
   }
 
-  if (isError || !provider) {
+  // A refresh that fails (offline when the tab comes back into view) keeps the page on screen.
+  if (!provider) {
+    if (isError && couldNotLoad(error)) {
+      return <LoadError what="service provider" retrying={isFetching} onRetry={() => void refetch()} />;
+    }
     return (
       <div className="text-center py-16">
         <h1 className="text-2xl font-bold mb-4">Service provider not found</h1>
@@ -189,7 +197,6 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
     );
   }
 
-  const distance = providerDistance(hasRealLocation ? location : null, provider);
   const averageRating = reviewList.length
     ? reviewList.reduce((sum, review) => sum + review.rating, 0) / reviewList.length
     : provider.rating;
@@ -243,11 +250,7 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
             <div>
               <p className="font-medium text-sm">Location</p>
               <p className="text-muted-foreground text-sm">{provider.address || 'Service area varies'}</p>
-              {typeof distance === 'number' && (
-                <p className="text-xs text-primary flex items-center gap-1 mt-1">
-                  <Navigation className="h-3 w-3" /> {formatDistance(distance)} away
-                </p>
-              )}
+              <DeliveryReach provider={provider} className="text-xs mt-1" />
             </div>
           </CardContent>
         </Card>
@@ -342,7 +345,7 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
           <CalendarClock className="mr-2 h-5 w-5" />
           Book Now
         </Button>
-        <Button size="lg" variant="outline" className="flex-1" onClick={() => { setSent(false); setMsgOpen(true); }}>
+        <Button size="lg" variant="outline" className="flex-1" onClick={openMessageDialog}>
           <MessageSquare className="mr-2 h-5 w-5" />
           Message Provider
         </Button>
@@ -466,36 +469,30 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
               Message {provider.name}
             </DialogTitle>
             <DialogDescription>
-              Your message will be forwarded to the provider and Ghar Tak team.
+              Your message opens a chat with the provider. Their replies appear in Messages.
             </DialogDescription>
           </DialogHeader>
-          {sent ? (
-            <div className="flex flex-col items-center py-8 gap-3 text-center">
-              <CheckCircle className="h-14 w-14 text-green-500" />
-              <p className="font-semibold text-lg">Message sent!</p>
-              <p className="text-muted-foreground text-sm">The provider will get back to you soon.</p>
-              <Button variant="outline" onClick={() => setMsgOpen(false)}>Close</Button>
-            </div>
-          ) : (
-            <form onSubmit={handleSend} className="space-y-3 pt-2">
-              <div>
-                <Label htmlFor="msg-name">Your Name</Label>
-                <Input id="msg-name" value={name} onChange={e => setName(e.target.value)} placeholder="Full name" required className="mt-1" />
-              </div>
-              <div>
-                <Label htmlFor="msg-email">Email</Label>
-                <Input id="msg-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required className="mt-1" />
-              </div>
-              <div>
-                <Label htmlFor="msg-body">Message</Label>
-                <Textarea id="msg-body" value={message} onChange={e => setMessage(e.target.value)} placeholder={`Hi ${provider.name}, I'd like to enquire about...`} rows={4} required className="mt-1" />
-              </div>
-              <Button type="submit" className="w-full" disabled={sending}>
-                {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                Send Message
-              </Button>
-            </form>
-          )}
+          <div className="space-y-3 pt-2">
+            <Label htmlFor="msg-body">Message</Label>
+            <Textarea
+              id="msg-body"
+              value={messageDraft}
+              onChange={e => setMessageDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder={`Hi ${provider.name}, I'd like to enquire about...`}
+              rows={4}
+              maxLength={2000}
+            />
+            <Button className="w-full" onClick={handleSend} disabled={!messageDraft.trim() || sendMessage.isPending}>
+              {sendMessage.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              Send Message
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

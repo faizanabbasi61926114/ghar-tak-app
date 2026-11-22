@@ -10,10 +10,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@clerk/react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
+
+const PROFILE_TABS = ["posts", "saved", "orders", "settings"];
 import { useQueryClient } from "@tanstack/react-query";
 import { useListMyOrders, useGetMe, useUpdateMe, useListMyBookings, useUpdateBookingStatus } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { useFavorites } from "@/hooks/useFavorites";
 import {
   User,
   Edit3,
@@ -62,7 +65,6 @@ export default function ProfilePage() {
   });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -73,18 +75,24 @@ export default function ProfilePage() {
 
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [savedItems, setSavedItems] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState("posts");
+  // Other pages can open a tab directly, e.g. /profile?tab=orders from Support.
+  const requestedTab = new URLSearchParams(useSearch()).get("tab");
+  const [activeTab, setActiveTab] = useState(
+    requestedTab && PROFILE_TABS.includes(requestedTab) ? requestedTab : "posts",
+  );
 
-  const favorites: any[] = [];
+  const { favouriteIds } = useFavorites();
   const postsCount = gallery.length;
   const savedCount = savedItems.length;
   const orders = Array.isArray(ordersData) ? ordersData : [];
   const ordersCount = orders.length;
   const bookings = Array.isArray(bookingsData) ? bookingsData : [];
+  // The name saved in Ghar Tak wins; the Clerk account name fills in until one is saved.
+  const displayName = dbUser?.name || [user?.firstName, user?.lastName].filter(Boolean).join(" ");
 
   const handleEditClick = () => {
     setEditForm({
-      name: user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : (user?.firstName || dbUser?.name || ""),
+      name: displayName,
       phone: dbUser?.phone || "",
     });
     setIsEditing(true);
@@ -95,8 +103,11 @@ export default function ProfilePage() {
       { data: { name: editForm.name, phone: editForm.phone } },
       {
         onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["getMe"] });
           setIsEditing(false);
-        }
+          toast({ title: "Profile updated" });
+        },
+        onError: () => toast({ title: "Could not save your profile", variant: "destructive" }),
       }
     );
   };
@@ -149,12 +160,6 @@ export default function ProfilePage() {
       {/* Cover Photo */}
       <div className="relative rounded-xl overflow-hidden h-48 md:h-64 bg-muted group">
         <img src="https://placehold.co/1200x400.png?text=Cover+Photo" alt="Cover" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <Button variant="secondary" size="sm" onClick={() => coverInputRef.current?.click()}>
-            <Camera className="h-4 w-4 mr-2" /> Change Cover
-          </Button>
-        </div>
-        <input ref={coverInputRef} type="file" accept="image/*" className="hidden" />
       </div>
 
       {/* Profile Header */}
@@ -167,7 +172,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="flex-1 pb-2">
-          <h1 className="text-2xl font-bold font-headline">{user.firstName} {user.lastName}</h1>
+          <h1 className="text-2xl font-bold font-headline">{displayName}</h1>
           <p className="text-muted-foreground text-sm">{user.primaryEmailAddress?.emailAddress ?? user.emailAddresses?.[0]?.emailAddress}</p>
           <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
             <MapPin className="h-3.5 w-3.5" />
@@ -225,7 +230,7 @@ export default function ProfilePage() {
           <div className="text-sm text-muted-foreground">Orders</div>
         </div>
         <div className="text-center">
-          <div className="text-xl font-bold">{favorites.length}</div>
+          <div className="text-xl font-bold">{favouriteIds.size}</div>
           <div className="text-sm text-muted-foreground">Favorites</div>
         </div>
       </div>

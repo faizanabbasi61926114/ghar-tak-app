@@ -368,12 +368,56 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // A read that never answers (a stuck mobile connection) would leave its page spinning for
+  // ever, so reads give up after READ_TIMEOUT_MS. Writes are left alone: one that timed out may
+  // still have been carried out, and repeating it could place an order twice.
+  const timeout = method === "GET" || method === "HEAD" ? timeoutSignal(init.signal, READ_TIMEOUT_MS) : null;
+  try {
+    const response = await fetch(input, { ...init, method, headers, signal: timeout?.signal ?? init.signal });
 
-  if (!response.ok) {
-    const errorData = await parseErrorBody(response, method);
-    throw new ApiError(response, errorData, requestInfo);
+    if (!response.ok) {
+      const errorData = await parseErrorBody(response, method);
+      throw new ApiError(response, errorData, requestInfo);
+    }
+
+    return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  } catch (error) {
+    // Browsers that ignore the reason given to abort() reject with a plain AbortError; the
+    // page must still see a timeout (one retry), not a cancelled request.
+    const timedOut = timeout?.timedOut();
+    if (timedOut && (error as { name?: string } | null)?.name === "AbortError") throw timedOut;
+    throw error;
+  } finally {
+    timeout?.clear();
   }
+}
 
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+const READ_TIMEOUT_MS = 20_000;
+
+/**
+ * A signal that aborts after `ms`, or when `parent` aborts. Written out by hand because
+ * AbortSignal.any is missing from browsers a few years old.
+ */
+function timeoutSignal(parent: AbortSignal | null | undefined, ms: number) {
+  const controller = new AbortController();
+  const onParentAbort = () => controller.abort(parent?.reason);
+  if (parent?.aborted) controller.abort(parent.reason);
+  else parent?.addEventListener("abort", onParentAbort, { once: true });
+  let timeoutError: Error | null = null;
+  const timer = setTimeout(() => {
+    timeoutError =
+      typeof DOMException === "function"
+        ? new DOMException("The server took too long to answer.", "TimeoutError")
+        : Object.assign(new Error("The server took too long to answer."), { name: "TimeoutError" });
+    controller.abort(timeoutError);
+  }, ms);
+  return {
+    signal: controller.signal,
+    /** The timeout's error once the time ran out, otherwise null. */
+    timedOut: () => timeoutError,
+    clear: () => {
+      clearTimeout(timer);
+      parent?.removeEventListener("abort", onParentAbort);
+    },
+  };
 }

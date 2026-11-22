@@ -1,6 +1,9 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, servicesTable, providersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { CreateServiceBody, UpdateServiceBody } from "@workspace/api-zod";
+import { viewerOwnsProvider } from "../lib/ownership";
+import { parseBody } from "../lib/validation";
 import { requireAuth } from "./auth";
 
 const router: IRouter = Router();
@@ -23,7 +26,16 @@ function mapService(s: any) {
 router.get("/providers/:providerId/services", async (req: Request, res: Response) => {
   const { providerId } = req.params as Record<string, string>;
   try {
-    const rows = await db.select().from(servicesTable).where(eq(servicesTable.providerId, providerId));
+    // Customers only see what they can book; the owner sees everything to manage it.
+    const ownerView = await viewerOwnsProvider(req, providerId);
+    const rows = await db
+      .select()
+      .from(servicesTable)
+      .where(
+        ownerView
+          ? eq(servicesTable.providerId, providerId)
+          : and(eq(servicesTable.providerId, providerId), eq(servicesTable.isAvailable, true)),
+      );
     res.json(rows.map(mapService));
   } catch (err) {
     req.log.error({ err }, "GET /providers/:id/services error");
@@ -35,7 +47,8 @@ router.get("/providers/:providerId/services", async (req: Request, res: Response
 router.post("/providers/:providerId/services", requireAuth, async (req: Request, res: Response) => {
   const clerkUserId = (req as any).clerkUserId as string;
   const { providerId } = req.params as Record<string, string>;
-  const body = req.body as any;
+  const body = parseBody(CreateServiceBody, req, res);
+  if (!body) return;
 
   try {
     const [provider] = await db
@@ -72,7 +85,9 @@ router.post("/providers/:providerId/services", requireAuth, async (req: Request,
 router.patch("/services/:serviceId", requireAuth, async (req: Request, res: Response) => {
   const clerkUserId = (req as any).clerkUserId as string;
   const { serviceId } = req.params as Record<string, string>;
-  const body = req.body as any;
+  // Only editable fields get through, so a service can't be moved to another provider.
+  const body = parseBody(UpdateServiceBody, req, res);
+  if (!body) return;
 
   try {
     const [existing] = await db

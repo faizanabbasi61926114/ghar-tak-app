@@ -7,10 +7,24 @@
  */
 
 export interface UpdateServiceRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
   name?: string;
-  description?: string;
+  /** @nullable */
+  description?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
   priceRange?: string;
-  duration?: string;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  duration?: string | null;
+  /** @maxLength 100 */
   category?: string;
   isAvailable?: boolean;
 }

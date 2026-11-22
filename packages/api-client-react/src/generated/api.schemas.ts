@@ -29,7 +29,9 @@ export interface UserProfile {
 }
 
 export interface UpdateUserProfileRequest {
+  /** @maxLength 120 */
   name?: string;
+  /** @maxLength 50 */
   phone?: string;
 }
 
@@ -80,12 +82,17 @@ export interface Provider {
   isOpen: boolean;
   /** @nullable */
   openingHours?: string | null;
-  /** @nullable */
-  deliveryRadius?: string | null;
+  /**
+     * How far the provider delivers or travels, in km in a straight line. Null means the default (5 km).
+     * @nullable
+     */
+  deliveryRadiusKm?: number | null;
   /** @nullable */
   lat?: number | null;
   /** @nullable */
   lng?: number | null;
+  /** Straight-line km from the lat/lng the list was asked for. Only sent on such lists. */
+  distanceKm?: number;
   rating: number;
   reviewCount: number;
   isFavorite?: boolean;
@@ -106,29 +113,74 @@ export const CreateProviderRequestType = {
   restaurant: 'restaurant',
 } as const;
 
+/**
+ * Delivery or service radius in km. The limits match @workspace/geo.
+ * @minimum 0.5
+ * @maximum 50
+ */
+export type DeliveryRadiusKm = number;
+
+/**
+ * @minimum -90
+ * @maximum 90
+ */
+export type Latitude = number;
+
+/**
+ * @minimum -180
+ * @maximum 180
+ */
+export type Longitude = number;
+
 export interface CreateProviderRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
   name: string;
   type: CreateProviderRequestType;
+  /** @maxLength 2000 */
   description?: string;
+  /** @maxLength 500 */
   address?: string;
+  /** @maxLength 50 */
   phone?: string;
+  /** @maxLength 255 */
   email?: string;
+  /** @maxLength 100 */
   category?: string;
+  /** @maxLength 100 */
   openingHours?: string;
-  deliveryRadius?: string;
+  deliveryRadiusKm?: DeliveryRadiusKm;
+  lat?: Latitude;
+  lng?: Longitude;
 }
 
 export interface UpdateProviderRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
   name?: string;
+  /** @maxLength 2000 */
   description?: string;
+  /** @maxLength 500 */
   address?: string;
+  /** @maxLength 50 */
   phone?: string;
+  /** @maxLength 255 */
   email?: string;
   isOpen?: boolean;
+  /** @maxLength 100 */
   openingHours?: string;
-  deliveryRadius?: string;
+  deliveryRadiusKm?: DeliveryRadiusKm;
+  lat?: Latitude;
+  lng?: Longitude;
+  /** @maxLength 2048 */
   avatarUrl?: string;
+  /** @maxLength 2048 */
   coverUrl?: string;
+  /** @maxLength 100 */
   category?: string;
 }
 
@@ -161,22 +213,49 @@ export interface Product {
 }
 
 export interface CreateProductRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
   name: string;
   description?: string;
+  /**
+     * @minimum 0
+     * @maximum 99999999.99
+     */
   price: number;
+  /** @minimum 0 */
   stock: number;
+  /** @maxLength 100 */
   sku?: string;
   imageUrl?: string;
+  /** @maxLength 100 */
   category: string;
 }
 
 export interface UpdateProductRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
   name?: string;
-  description?: string;
+  /** @nullable */
+  description?: string | null;
+  /**
+     * @minimum 0
+     * @maximum 99999999.99
+     */
   price?: number;
+  /** @minimum 0 */
   stock?: number;
-  sku?: string;
-  imageUrl?: string;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  sku?: string | null;
+  /** @nullable */
+  imageUrl?: string | null;
+  /** @maxLength 100 */
   category?: string;
   isAvailable?: boolean;
 }
@@ -196,18 +275,42 @@ export interface Service {
 }
 
 export interface CreateServiceRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
   name: string;
   description?: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
   priceRange: string;
+  /** @maxLength 100 */
   duration?: string;
+  /** @maxLength 100 */
   category: string;
 }
 
 export interface UpdateServiceRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
   name?: string;
-  description?: string;
+  /** @nullable */
+  description?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
   priceRange?: string;
-  duration?: string;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  duration?: string | null;
+  /** @maxLength 100 */
   category?: string;
   isAvailable?: boolean;
 }
@@ -218,7 +321,12 @@ export interface OrderItem {
   /** @nullable */
   serviceId?: string | null;
   name: string;
+  /** @minimum 1 */
   quantity: number;
+  /**
+     * When placing an order this is ignored; the server uses the product's current price.
+     * @minimum 0
+     */
   unitPrice: number;
 }
 
@@ -262,6 +370,10 @@ export interface Order {
   /** @nullable */
   deliveryAddress?: string | null;
   /** @nullable */
+  deliveryPhone?: string | null;
+  /** @nullable */
+  deliveryInstructions?: string | null;
+  /** @nullable */
   notes?: string | null;
   items: OrderItem[];
   deliveryFee: number;
@@ -284,11 +396,19 @@ export const CreateOrderRequestPaymentMethod = {
 } as const;
 
 export interface CreateOrderRequest {
+  /** @minLength 1 */
   providerId: string;
+  /** @minItems 1 */
   items: OrderItem[];
   paymentMethod: CreateOrderRequestPaymentMethod;
+  /** One of the customer's saved addresses. Its street, city, phone and instructions are copied onto the order, and deliveryAddress is ignored. */
+  addressId?: string;
   deliveryAddress?: string;
   notes?: string;
+  /**
+     * Ignored; the server calculates the delivery fee.
+     * @minimum 0
+     */
   deliveryFee?: number;
   couponCode?: string;
 }
@@ -374,6 +494,7 @@ export interface UpdateAddressRequest {
 
 export interface ValidateCouponRequest {
   code: string;
+  /** @minimum 0 */
   subtotal: number;
 }
 
@@ -558,8 +679,11 @@ export type ListProvidersParams = {
 category?: string;
 type?: ListProvidersType;
 q?: string;
-lat?: number;
-lng?: number;
+/**
+ * With lng, lists only the providers whose delivery radius reaches this point, nearest first, each with distanceKm.
+ */
+lat?: Latitude;
+lng?: Longitude;
 };
 
 export type ListProvidersType = typeof ListProvidersType[keyof typeof ListProvidersType];

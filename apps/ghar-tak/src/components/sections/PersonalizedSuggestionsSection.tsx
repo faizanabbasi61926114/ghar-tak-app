@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useUser } from '@clerk/react';
-import { useListMyOrders, useListProviders, useListProviderProducts } from '@workspace/api-client-react';
+import { useListMyOrders, useListProviders, useListProviderProducts, getListProvidersQueryKey } from '@workspace/api-client-react';
 import { getPersonalizedProductRecommendations, PersonalizedProductRecommendationsInput } from '@/ai/flows/product-recommendations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,31 +8,45 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { ArrowRight, Loader2, Search } from 'lucide-react';
 import { Link } from 'wouter';
 import { useLocation } from '@/hooks/useLocation';
-import { sortByDistance } from '@/lib/geo';
+import { useNearbyFilter } from '@/hooks/useNearby';
+import { sortByDistance } from '@workspace/geo';
 
 const NEAREST_STORES = 3;
 const MAX_PRODUCTS_PER_STORE = 8;
+// The suggestions service passes the location on to OpenAI: 2 decimals (about 1 km) is
+// enough to suggest local products and says less about where the customer lives.
+const roundForAi = (value: number) => Math.round(value * 100) / 100;
 
 export default function PersonalizedSuggestionsSection() {
   const { user, isLoaded } = useUser();
-  const { location, hasRealLocation } = useLocation();
+  // Wait until the location is known or given up on (at most about 10 s), so the paid
+  // suggestions are asked for once, not once before the location and again after it.
+  const { loading: locating } = useLocation();
   const [recommendations, setRecommendations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: stores, isLoading: storesLoading } = useListProviders(
-    { type: 'store' },
-    { query: { queryKey: ["listProviders", { type: 'store' }] } }
+  // With a precise location the server sends only the stores that deliver there, nearest
+  // first; with a rough one every store is listed, nearest first by that rough location.
+  const { point, filterPoint } = useNearbyFilter();
+  // The same request as the other home lists, so it is shared rather than asked again.
+  // Restaurants count as stores here too, as everywhere else on the site.
+  const storeParams = filterPoint ?? {};
+  const { data: providers, isLoading: storesLoading } = useListProviders(
+    storeParams,
+    { query: { queryKey: getListProvidersQueryKey(storeParams) } }
+  );
+  const stores = useMemo(
+    () => (Array.isArray(providers) ? providers : []).filter((provider) => provider.type !== 'service'),
+    [providers],
   );
   const { data: orders, isLoading: ordersLoading } = useListMyOrders({
     query: { enabled: !!user, queryKey: ["listMyOrders"] },
   });
 
-  const origin = hasRealLocation ? location : null;
-
   const nearestStores = useMemo(
-    () => sortByDistance(Array.isArray(stores) ? stores : [], origin).slice(0, NEAREST_STORES),
-    [stores, origin]
+    () => (filterPoint ? stores : sortByDistance(stores, point)).slice(0, NEAREST_STORES),
+    [stores, filterPoint, point],
   );
 
   const store1 = nearestStores[0]?.id ?? '';
@@ -50,7 +64,10 @@ export default function PersonalizedSuggestionsSection() {
   });
 
   const isLoadingContext =
-    storesLoading || ordersLoading || products1Loading || products2Loading || products3Loading;
+    locating || storesLoading || ordersLoading || products1Loading || products2Loading || products3Loading;
+
+  const aiLat = point ? roundForAi(point.lat) : null;
+  const aiLng = point ? roundForAi(point.lng) : null;
 
   const recommendationInput = useMemo<PersonalizedProductRecommendationsInput>(() => {
     const productLists = [products1, products2, products3];
@@ -70,11 +87,11 @@ export default function PersonalizedSuggestionsSection() {
     ).slice(0, 10);
 
     const input: PersonalizedProductRecommendationsInput = {};
-    if (location) input.userLocation = { latitude: location.lat, longitude: location.lng };
+    if (aiLat !== null && aiLng !== null) input.userLocation = { latitude: aiLat, longitude: aiLng };
     if (pastPurchases.length) input.pastPurchases = pastPurchases;
     if (nearbyStores.length) input.nearbyStores = nearbyStores;
     return input;
-  }, [nearestStores, products1, products2, products3, orders, location]);
+  }, [nearestStores, products1, products2, products3, orders, aiLat, aiLng]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -161,7 +178,9 @@ export default function PersonalizedSuggestionsSection() {
         <div className="text-center py-10 px-6 border rounded-lg bg-card shadow-sm min-h-[150px] flex flex-col items-center justify-center">
           <Search className="h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-lg text-muted-foreground mb-1">No suggestions right now.</p>
-          <p className="text-md text-muted-foreground">Search something to suggest or enable location!</p>
+          <p className="text-md text-muted-foreground">
+            {point ? 'Suggestions grow as you order from shops near you.' : 'Set your location to get suggestions from shops near you.'}
+          </p>
         </div>
       </section>
     );

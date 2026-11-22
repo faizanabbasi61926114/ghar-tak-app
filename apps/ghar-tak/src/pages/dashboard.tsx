@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -13,15 +13,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Briefcase, Building, BadgeCheck, Camera, CalendarClock, Edit3, Eye, ImagePlus, ListChecks,
+  Briefcase, Building, BadgeCheck, CalendarClock, Edit3, Eye, ListChecks,
   Loader2, MessageSquare, Package, PlusCircle, ShoppingBag, ShoppingCart,
   Star, Trash2, TrendingUp, Users, DollarSign, ArrowUpRight, BarChart3,
-  AlertCircle,
+  AlertCircle, MapPin,
 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { apiErrorReason } from "@/lib/api-error";
 import ConversationsList from "@/components/shared/ConversationsList";
+import ShopLocationFields, { initialShopLocation, radiusProblem, shopLocationRequest } from "@/components/shared/ShopLocationFields";
 import {
   useGetMyProvider, useGetMyProviderStats, useUpdateMyProvider,
   useListProviderProducts, useCreateProduct, useUpdateProduct, useDeleteProduct,
@@ -90,7 +92,7 @@ function ProductsTab({ providerId }: { providerId: string }) {
         setNew({ name: "", price: "", stock: "", description: "", category: "", sku: "" });
         setAddOpen(false);
       },
-      onError: () => toast({ title: "Failed to add product", variant: "destructive" }),
+      onError: (err) => toast({ title: "Failed to add product", description: apiErrorReason(err), variant: "destructive" }),
     },
   });
 
@@ -101,7 +103,7 @@ function ProductsTab({ providerId }: { providerId: string }) {
         toast({ title: "Product updated" });
         setEditing(null);
       },
-      onError: () => toast({ title: "Failed to update product", variant: "destructive" }),
+      onError: (err) => toast({ title: "Failed to update product", description: apiErrorReason(err), variant: "destructive" }),
     },
   });
 
@@ -112,7 +114,7 @@ function ProductsTab({ providerId }: { providerId: string }) {
         qc.invalidateQueries({ queryKey: getGetMyProviderStatsQueryKey() });
         toast({ title: "Product deleted" });
       },
-      onError: () => toast({ title: "Failed to delete product", variant: "destructive" }),
+      onError: (err) => toast({ title: "Failed to delete product", description: apiErrorReason(err), variant: "destructive" }),
     },
   });
 
@@ -190,9 +192,12 @@ function ProductsTab({ providerId }: { providerId: string }) {
               <div className="flex items-center justify-between mt-3">
                 <span className="font-bold text-lg">PKR {product.price.toLocaleString()}</span>
                 <div className="flex gap-1">
-                  <Dialog>
+                  <Dialog
+                    open={editing?.id === product.id}
+                    onOpenChange={(open) => setEditing(open ? { ...product } : null)}
+                  >
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" onClick={() => setEditing({ ...product })}>Edit</Button>
+                      <Button variant="outline" size="sm">Edit</Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-md">
                       <DialogHeader><DialogTitle>Edit Product</DialogTitle></DialogHeader>
@@ -247,7 +252,7 @@ function ServicesTab({ providerId }: { providerId: string }) {
         setNew({ name: "", category: "", priceRange: "", description: "", duration: "" });
         setAddOpen(false);
       },
-      onError: () => toast({ title: "Failed to add service", variant: "destructive" }),
+      onError: (err) => toast({ title: "Failed to add service", description: apiErrorReason(err), variant: "destructive" }),
     },
   });
 
@@ -258,7 +263,7 @@ function ServicesTab({ providerId }: { providerId: string }) {
         toast({ title: "Service updated" });
         setEditing(null);
       },
-      onError: () => toast({ title: "Failed to update service", variant: "destructive" }),
+      onError: (err) => toast({ title: "Failed to update service", description: apiErrorReason(err), variant: "destructive" }),
     },
   });
 
@@ -269,7 +274,7 @@ function ServicesTab({ providerId }: { providerId: string }) {
         qc.invalidateQueries({ queryKey: getGetMyProviderStatsQueryKey() });
         toast({ title: "Service deleted" });
       },
-      onError: () => toast({ title: "Failed to delete service", variant: "destructive" }),
+      onError: (err) => toast({ title: "Failed to delete service", description: apiErrorReason(err), variant: "destructive" }),
     },
   });
 
@@ -332,9 +337,12 @@ function ServicesTab({ providerId }: { providerId: string }) {
                 <Badge variant="outline" className="mt-2">{service.priceRange}</Badge>
               </div>
               <div className="flex gap-1">
-                <Dialog>
+                <Dialog
+                  open={editing?.id === service.id}
+                  onOpenChange={(open) => setEditing(open ? { ...service } : null)}
+                >
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" onClick={() => setEditing({ ...service })}>Edit</Button>
+                    <Button variant="outline" size="sm">Edit</Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-md">
                     <DialogHeader><DialogTitle>Edit Service</DialogTitle></DialogHeader>
@@ -370,14 +378,17 @@ function ServicesTab({ providerId }: { providerId: string }) {
 function OrdersTab() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data: orders = [], isLoading } = useListProviderOrders({ query: { queryKey: getListProviderOrdersQueryKey() } });
+  // New orders show up without a reload (polling pauses while the tab is in the background).
+  const { data: orders = [], isLoading } = useListProviderOrders({
+    query: { queryKey: getListProviderOrdersQueryKey(), refetchInterval: 15000 },
+  });
   const updateStatus = useUpdateOrderStatus({
     mutation: {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getListProviderOrdersQueryKey() });
         qc.invalidateQueries({ queryKey: getGetMyProviderStatsQueryKey() });
       },
-      onError: () => toast({ title: "Failed to update order", variant: "destructive" }),
+      onError: (err) => toast({ title: "Failed to update order", description: apiErrorReason(err), variant: "destructive" }),
     },
   });
 
@@ -393,11 +404,12 @@ function OrdersTab() {
         </div>
       ) : (
         <div className="border rounded-lg overflow-x-auto">
-          <Table className="min-w-[640px]">
+          <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Order</TableHead>
                 <TableHead>Customer</TableHead>
+                <TableHead>Deliver to</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
@@ -410,6 +422,18 @@ function OrdersTab() {
                 <TableRow key={order.id}>
                   <TableCell className="font-medium font-mono text-xs">{order.id.slice(0, 8).toUpperCase()}</TableCell>
                   <TableCell>{order.customerName ?? "Customer"}</TableCell>
+                  <TableCell className="max-w-[220px] text-sm">
+                    <p>{order.deliveryAddress ?? "No address given"}</p>
+                    {order.deliveryPhone && (
+                      <a href={`tel:${order.deliveryPhone.replace(/\s/g, "")}`} className="text-primary hover:underline">
+                        {order.deliveryPhone}
+                      </a>
+                    )}
+                    {order.deliveryInstructions && (
+                      <p className="text-xs text-muted-foreground">{order.deliveryInstructions}</p>
+                    )}
+                    {order.notes && <p className="text-xs text-muted-foreground italic">Note: {order.notes}</p>}
+                  </TableCell>
                   <TableCell className="max-w-[180px] truncate text-sm">
                     {Array.isArray(order.items)
                       ? order.items.map((i: any) => `${i.quantity}× ${i.name}`).join(", ")
@@ -424,6 +448,7 @@ function OrdersTab() {
                     <Select
                       value={order.status}
                       onValueChange={(v) => updateStatus.mutate({ orderId: order.id, data: { status: v as any } })}
+                      disabled={order.status === "delivered" || order.status === "cancelled"}
                     >
                       <SelectTrigger className="h-8 w-[130px]">
                         <SelectValue />
@@ -452,7 +477,7 @@ function BookingsTab() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { data: bookings = [], isLoading } = useListProviderBookings({
-    query: { queryKey: getListProviderBookingsQueryKey() },
+    query: { queryKey: getListProviderBookingsQueryKey(), refetchInterval: 15000 },
   });
   const updateStatus = useUpdateBookingStatus({
     mutation: {
@@ -460,7 +485,7 @@ function BookingsTab() {
         qc.invalidateQueries({ queryKey: getListProviderBookingsQueryKey() });
         toast({ title: "Booking updated" });
       },
-      onError: () => toast({ title: "Failed to update booking", variant: "destructive" }),
+      onError: (err) => toast({ title: "Failed to update booking", description: apiErrorReason(err), variant: "destructive" }),
     },
   });
 
@@ -501,7 +526,10 @@ function BookingsTab() {
                     {new Date(booking.bookingDate).toLocaleDateString()}
                     <span className="text-xs text-muted-foreground block">{booking.timeSlot}</span>
                   </TableCell>
-                  <TableCell className="max-w-[200px] truncate text-sm">{booking.address}</TableCell>
+                  <TableCell className="max-w-[220px] text-sm">
+                    <p className="truncate">{booking.address}</p>
+                    {booking.notes && <p className="text-xs text-muted-foreground italic">Note: {booking.notes}</p>}
+                  </TableCell>
                   <TableCell>
                     <Badge className={statusBadge(booking.status)}>{booking.status}</Badge>
                   </TableCell>
@@ -583,47 +611,6 @@ function ReviewsTab({ providerId }: { providerId: string }) {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function GalleryTab() {
-  const [gallery, setGallery] = useState<{ id: string; url: string; caption: string }[]>([]);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
-
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    Array.from(files).forEach((file) => {
-      const url = URL.createObjectURL(file);
-      setGallery((g) => [...g, { id: `g-${Date.now()}-${Math.random()}`, url, caption: "" }]);
-    });
-  };
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold font-headline">Store Gallery</h3>
-        <Button size="sm" onClick={() => galleryInputRef.current?.click()}>
-          <ImagePlus className="h-4 w-4 mr-2" /> Upload Images
-        </Button>
-        <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {gallery.map((image) => (
-          <div key={image.id} className="relative group aspect-video rounded-lg overflow-hidden border">
-            <img src={image.url} alt="gallery" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Button variant="ghost" size="icon" className="text-white hover:text-white" onClick={() => setGallery((g) => g.filter((x) => x.id !== image.id))}>
-                <Trash2 className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-        ))}
-        {gallery.length === 0 && (
-          <p className="text-muted-foreground col-span-full text-center py-12">No photos yet. Upload images of your store or services!</p>
-        )}
-      </div>
     </div>
   );
 }
@@ -780,9 +767,17 @@ export default function ProviderDashboardPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const { data: provider, isLoading: providerLoading } = useGetMyProvider({
+  const {
+    data: provider,
+    isLoading: providerLoading,
+    error: providerError,
+    refetch: refetchProvider,
+    isFetching: providerFetching,
+  } = useGetMyProvider({
     query: { enabled: !!user, queryKey: getGetMyProviderQueryKey(), retry: false },
   });
+  // Only a 404 means "no store yet"; any other failure is a load error the seller can retry.
+  const providerLoadFailed = !!providerError && (providerError as { status?: number }).status !== 404;
   const { data: stats, isLoading: statsLoading } = useGetMyProviderStats({
     query: { enabled: !!provider, queryKey: getGetMyProviderStatsQueryKey() },
   });
@@ -802,13 +797,14 @@ export default function ProviderDashboardPage() {
         toast({ title: "Business details updated" });
         setEditOpen(false);
       },
-      onError: () => toast({ title: "Failed to update details", variant: "destructive" }),
+      onError: (err) => toast({ title: "Failed to update details", description: apiErrorReason(err), variant: "destructive" }),
     },
   });
 
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editLocation, setEditLocation] = useState(initialShopLocation);
+  const editRadiusError = radiusProblem(editLocation.radiusKm);
 
   // ── loading / auth gates ────────────────────────────────────────────────────
 
@@ -831,6 +827,20 @@ export default function ProviderDashboardPage() {
         <h1 className="text-2xl font-bold font-headline mb-2">Provider Dashboard</h1>
         <p className="text-muted-foreground mb-6">Sign in to manage your business.</p>
         <Button asChild><Link href="/sign-in">Sign In</Link></Button>
+      </div>
+    );
+  }
+
+  if (!provider && providerLoadFailed) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-4">
+        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <h1 className="text-2xl font-bold font-headline mb-2">Couldn't load your store</h1>
+        <p className="text-muted-foreground mb-6">Check your connection and try again.</p>
+        <Button onClick={() => refetchProvider()} disabled={providerFetching}>
+          {providerFetching && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Try again
+        </Button>
       </div>
     );
   }
@@ -860,8 +870,10 @@ export default function ProviderDashboardPage() {
       openingHours: provider.openingHours ?? "",
       isOpen: provider.isOpen ?? true,
     });
+    setEditLocation(initialShopLocation(provider));
     setEditOpen(true);
   };
+  const hasMapPoint = provider.lat != null && provider.lng != null;
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
@@ -870,12 +882,6 @@ export default function ProviderDashboardPage() {
         {provider.coverUrl
           ? <img src={provider.coverUrl} alt="Store Banner" className="w-full h-full object-cover" />
           : <div className="w-full h-full bg-gradient-to-r from-primary/20 to-primary/5 flex items-center justify-center"><Briefcase className="h-16 w-16 text-primary/20" /></div>}
-        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
-            <Camera className="h-4 w-4 mr-2" /> Change Banner
-          </Button>
-        </div>
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" />
       </div>
 
       {/* Business Header */}
@@ -922,7 +928,7 @@ export default function ProviderDashboardPage() {
                 <div><Label>Email</Label><Input value={editForm.email ?? ""} onChange={e => setEditForm({ ...editForm, email: e.target.value })} /></div>
                 <div><Label>Address</Label><Input value={editForm.address ?? ""} onChange={e => setEditForm({ ...editForm, address: e.target.value })} /></div>
                 <div><Label>Phone</Label><Input value={editForm.phone ?? ""} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} /></div>
-                <div><Label>Description</Label><Textarea value={editForm.description ?? ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} /></div>
+                <div><Label>Description</Label><Textarea maxLength={2000} value={editForm.description ?? ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} /></div>
                 <div><Label>Opening Hours</Label><Input value={editForm.openingHours ?? ""} onChange={e => setEditForm({ ...editForm, openingHours: e.target.value })} /></div>
                 <div className="flex items-center justify-between">
                   <Label>Store Status</Label>
@@ -931,10 +937,14 @@ export default function ProviderDashboardPage() {
                     {editForm.isOpen ? "Open" : "Closed"}
                   </Button>
                 </div>
+                <ShopLocationFields providerType={provider.type} value={editLocation} onChange={setEditLocation} />
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-                <Button onClick={() => updateProviderMutation.mutate({ data: editForm })} disabled={updateProviderMutation.isPending}>
+                <Button
+                  onClick={() => updateProviderMutation.mutate({ data: { ...editForm, ...shopLocationRequest(editLocation) } })}
+                  disabled={updateProviderMutation.isPending || editRadiusError !== null}
+                >
                   {updateProviderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save Changes
                 </Button>
@@ -946,6 +956,21 @@ export default function ProviderDashboardPage() {
           </Button>
         </div>
       </div>
+
+      {!hasMapPoint && (
+        <Card className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <MapPin className="h-6 w-6 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium">Customers near you can't find you yet</p>
+              <p className="text-sm text-muted-foreground">
+                "Near me" lists only show businesses with a location on the map. Set yours in Edit Business.
+              </p>
+            </div>
+            <Button size="sm" onClick={openEdit}>Set location</Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1007,13 +1032,12 @@ export default function ProviderDashboardPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="listings">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-7">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
           <TabsTrigger value="listings"><ListChecks className="h-4 w-4 mr-2" /> Listings</TabsTrigger>
           <TabsTrigger value="orders"><ShoppingBag className="h-4 w-4 mr-2" /> Orders</TabsTrigger>
           <TabsTrigger value="bookings"><CalendarClock className="h-4 w-4 mr-2" /> Bookings</TabsTrigger>
           <TabsTrigger value="messages"><MessageSquare className="h-4 w-4 mr-2" /> Messages</TabsTrigger>
           <TabsTrigger value="reviews"><Star className="h-4 w-4 mr-2" /> Reviews</TabsTrigger>
-          <TabsTrigger value="gallery"><ImagePlus className="h-4 w-4 mr-2" /> Gallery</TabsTrigger>
           <TabsTrigger value="analytics"><BarChart3 className="h-4 w-4 mr-2" /> Analytics</TabsTrigger>
         </TabsList>
 
@@ -1032,7 +1056,6 @@ export default function ProviderDashboardPage() {
         <TabsContent value="bookings" className="mt-6"><BookingsTab /></TabsContent>
         <TabsContent value="messages" className="mt-6"><MessagesTab /></TabsContent>
         <TabsContent value="reviews" className="mt-6"><ReviewsTab providerId={providerId} /></TabsContent>
-        <TabsContent value="gallery" className="mt-6"><GalleryTab /></TabsContent>
         <TabsContent value="analytics" className="mt-6"><AnalyticsTab stats={stats} products={products} /></TabsContent>
       </Tabs>
     </div>

@@ -12,6 +12,11 @@ export interface OrderItem {
   /** @nullable */
   serviceId?: string | null;
   name: string;
+  /** @minimum 1 */
   quantity: number;
+  /**
+     * When placing an order this is ignored; the server uses the product's current price.
+     * @minimum 0
+     */
   unitPrice: number;
 }

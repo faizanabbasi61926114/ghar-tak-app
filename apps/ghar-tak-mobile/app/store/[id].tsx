@@ -1,35 +1,58 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
+import { useQuery } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
+  FlatList,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { DeliveryReach } from "@/components/DeliveryReach";
+import { LoadError, LoadingBlock } from "@/components/LoadState";
+import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useColors } from "@/hooks/useColors";
+import { useFavorites } from "@/hooks/useFavorites";
+import { retryUnlessNotFound, useStore } from "@/hooks/useProvider";
 import { useThemedStyles } from "@/hooks/useThemedStyles";
-import type { Product } from "@/lib/data";
-import { useData } from "@/context/DataContext";
+import { ApiError } from "@/lib/api";
+import { deliveryRadiusLabel, openStatusLabel, type Product } from "@/lib/data";
+import { fetchProducts } from "@/lib/db";
+import { formatPKR } from "@/lib/pricing";
 
 export default function StoreDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const [favorited, setFavorited] = useState(false);
+  const { user } = useAuth();
+  const { favouriteIds, toggleFavourite } = useFavorites();
+  const favorited = !!id && favouriteIds.has(id);
   const { addItem, updateQuantity, items, totalItems } = useCart();
 
-  const { stores, products: allProducts } = useData();
-  const store = stores.find((s) => s.id === id);
-  const products = allProducts.filter((p) => p.storeId === id);
+  const storeState = useStore(id);
+  const { store } = storeState;
+  const productsQuery = useQuery({
+    queryKey: ["provider", id, "products"],
+    queryFn: ({ signal }) => fetchProducts(id as string, signal),
+    enabled: !!id && !!store && store.type !== "service",
+    retry: retryUnlessNotFound,
+  });
+  const products = productsQuery.data ?? [];
+
+  // A service provider's link opened as a store: show its own page instead.
+  useEffect(() => {
+    if (store?.type === "service") {
+      router.replace({ pathname: "/provider/[id]", params: { id: store.id } });
+    }
+  }, [store?.type, store?.id]);
 
   const quantities = useMemo(
     () => new Map(items.map((item) => [item.product.id, item.quantity])),
@@ -87,7 +110,9 @@ export default function StoreDetailScreen() {
       paddingHorizontal: 3,
     },
     cartBadgeText: { fontSize: 10, color: "#fff", fontFamily: "Inter_700Bold" },
-    content: { padding: 20 },
+    // Header and footer keep the old 20px side padding; product cards get it as a margin.
+    header: { paddingHorizontal: 20, paddingTop: 20 },
+    listEdge: { paddingHorizontal: 20 },
     row: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
     name: {
       fontSize: 22,
@@ -113,7 +138,9 @@ export default function StoreDetailScreen() {
     },
     metaRow: {
       flexDirection: "row",
-      gap: 20,
+      flexWrap: "wrap" as const,
+      columnGap: 20,
+      rowGap: 10,
       marginTop: 14,
       paddingVertical: 14,
       borderTopWidth: 1,
@@ -133,6 +160,7 @@ export default function StoreDetailScreen() {
       marginBottom: 12,
     },
     productCard: {
+      marginHorizontal: 20,
       flexDirection: "row",
       backgroundColor: colors.card,
       borderRadius: 12,
@@ -156,6 +184,7 @@ export default function StoreDetailScreen() {
       gap: 4,
     },
     addBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+    addBtnDisabled: { opacity: 0.5 },
     qtyControls: {
       flexDirection: "row",
       alignItems: "center",
@@ -190,7 +219,34 @@ export default function StoreDetailScreen() {
     empty: { alignItems: "center", paddingVertical: 24 },
     emptyText: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 8 },
     footer: { height: isWeb ? 34 : insets.bottom + 20 },
+    centered: { flex: 1, justifyContent: "center", backgroundColor: colors.background },
+    openText: { fontSize: 13, color: "#16a34a", fontFamily: "Inter_500Medium" },
+    closedText: { fontSize: 13, color: colors.destructive, fontFamily: "Inter_500Medium" },
   }));
+
+  if (!store && storeState.loading) {
+    return (
+      <View style={styles.centered}>
+        <LoadingBlock label="Loading store…" />
+      </View>
+    );
+  }
+
+  if (!store && storeState.error) {
+    return (
+      <View style={styles.centered}>
+        <LoadError
+          title="Couldn't load this store"
+          message={storeState.error instanceof ApiError ? storeState.error.message : null}
+          onRetry={storeState.retry}
+          retrying={storeState.retrying}
+        />
+        <Pressable onPress={() => router.back()} style={{ alignSelf: "center" }}>
+          <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>Go back</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (!store) {
     return (
@@ -208,14 +264,21 @@ export default function StoreDetailScreen() {
 
   const renderProductCard = (p: Product) => {
     const qty = getItemQty(p.id);
+    // Like the website's product card: none left and none in the cart means it can't be added.
+    const outOfStock = p.stock <= 0 && qty === 0;
+    const atStock = qty >= p.stock;
     return (
       <View key={p.id} style={styles.productCard}>
         <View style={styles.productInfo}>
           <Text style={styles.productName}>{p.name}</Text>
           <Text style={styles.productCategory}>{p.category}</Text>
-          <Text style={styles.productPrice}>${p.price.toFixed(2)}</Text>
+          <Text style={styles.productPrice}>{formatPKR(p.price)}</Text>
         </View>
-        {qty === 0 ? (
+        {outOfStock ? (
+          <Pressable style={[styles.addBtn, styles.addBtnDisabled]} disabled accessibilityState={{ disabled: true }}>
+            <Text style={styles.addBtnText}>Out of Stock</Text>
+          </Pressable>
+        ) : qty === 0 ? (
           <Pressable
             style={styles.addBtn}
             onPress={async () => {
@@ -239,11 +302,12 @@ export default function StoreDetailScreen() {
             </Pressable>
             <Text style={styles.qtyText}>{qty}</Text>
             <Pressable
-              style={[styles.qtyBtn, styles.qtyBtnPrimary]}
+              style={[styles.qtyBtn, styles.qtyBtnPrimary, atStock && styles.addBtnDisabled]}
               onPress={async () => {
                 await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 updateQuantity(p.id, qty + 1);
               }}
+              disabled={atStock}
             >
               <Feather name="plus" size={13} color="#fff" />
             </Pressable>
@@ -253,86 +317,124 @@ export default function StoreDetailScreen() {
     );
   };
 
+  // A FlatList only mounts the products near the screen, so a store with hundreds
+  // of products opens about as fast as one with three.
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.imageWrap}>
-        <Image
-          source={{ uri: store.imageUrl }}
-          style={styles.heroImage}
-          contentFit="cover"
-          transition={200}
-          cachePolicy="memory-disk"
-        />
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={20} color="#fff" />
-        </Pressable>
-        <Pressable
-          style={styles.favBtn}
-          onPress={async () => {
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setFavorited((f) => !f);
-          }}
-        >
-          <Feather name="heart" size={20} color={favorited ? "#ef4444" : "#fff"} />
-        </Pressable>
-        <Pressable style={styles.cartBtn} onPress={() => router.push("/cart" as any)}>
-          <Feather name="shopping-cart" size={20} color="#fff" />
-          {totalItems > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>{totalItems}</Text>
+    <FlatList
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      data={products}
+      keyExtractor={(p) => p.id}
+      renderItem={({ item }) => renderProductCard(item)}
+      extraData={quantities}
+      ListHeaderComponent={
+        <>
+          <View style={styles.imageWrap}>
+            <Image
+              source={{ uri: store.imageUrl }}
+              style={styles.heroImage}
+              contentFit="cover"
+              transition={200}
+              cachePolicy="memory-disk"
+            />
+            <Pressable style={styles.backBtn} onPress={() => router.back()}>
+              <Feather name="arrow-left" size={20} color="#fff" />
+            </Pressable>
+            <Pressable
+              style={styles.favBtn}
+              onPress={async () => {
+                if (!user) {
+                  router.push("/signin");
+                  return;
+                }
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                await toggleFavourite(store.id);
+              }}
+              accessibilityLabel={favorited ? "Remove from favourites" : "Add to favourites"}
+            >
+              <Feather name="heart" size={20} color={favorited ? "#ef4444" : "#fff"} />
+            </Pressable>
+            <Pressable style={styles.cartBtn} onPress={() => router.push("/cart" as any)}>
+              <Feather name="shopping-cart" size={20} color="#fff" />
+              {totalItems > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{totalItems}</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
+
+          <View style={styles.header}>
+            <View style={styles.row}>
+              <Text style={styles.name}>{store.name}</Text>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{store.category}</Text>
+              </View>
             </View>
-          )}
-        </Pressable>
-      </View>
+            <Text style={styles.desc}>{store.description}</Text>
 
-      <View style={styles.content}>
-        <View style={styles.row}>
-          <Text style={styles.name}>{store.name}</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{store.category}</Text>
-          </View>
-        </View>
-        <Text style={styles.desc}>{store.description}</Text>
+            <View style={styles.metaRow}>
+              {store.rating > 0 && (
+                <View style={styles.metaItem}>
+                  <Feather name="star" size={14} color="#f59e0b" />
+                  <Text style={styles.metaText}>{store.rating.toFixed(1)}</Text>
+                </View>
+              )}
+              <View style={styles.metaItem}>
+                <Feather name="clock" size={14} color={store.isOpen ? "#16a34a" : colors.destructive} />
+                <Text style={store.isOpen ? styles.openText : styles.closedText}>{openStatusLabel(store)}</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Feather name="truck" size={14} color={colors.mutedForeground} />
+                <Text style={styles.metaMuted}>{deliveryRadiusLabel(store.deliveryRadiusKm)}</Text>
+              </View>
+              {store.location.address ? (
+                <View style={styles.metaItem}>
+                  <Feather name="map-pin" size={14} color={colors.mutedForeground} />
+                  <Text style={styles.metaMuted} numberOfLines={1}>{store.location.address}</Text>
+                </View>
+              ) : null}
+            </View>
+            <DeliveryReach provider={store} />
 
-        <View style={styles.metaRow}>
-          <View style={styles.metaItem}>
-            <Feather name="star" size={14} color="#f59e0b" />
-            <Text style={styles.metaText}>{store.rating}</Text>
+            <Text style={styles.sectionTitle}>Products</Text>
           </View>
-          <View style={styles.metaItem}>
-            <Feather name="clock" size={14} color={colors.mutedForeground} />
-            <Text style={styles.metaMuted}>{store.deliveryTime}</Text>
-          </View>
-          <View style={styles.metaItem}>
-            <Feather name="map-pin" size={14} color={colors.mutedForeground} />
-            <Text style={styles.metaMuted} numberOfLines={1}>{store.location.address}</Text>
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Products</Text>
-        {products.length === 0 ? (
+        </>
+      }
+      ListEmptyComponent={
+        productsQuery.isPending && productsQuery.fetchStatus !== "idle" ? (
+          <LoadingBlock label="Loading products…" />
+        ) : productsQuery.isError ? (
+          <LoadError
+            title="Couldn't load products"
+            message={productsQuery.error instanceof ApiError ? productsQuery.error.message : null}
+            onRetry={() => void productsQuery.refetch()}
+            retrying={productsQuery.isFetching}
+          />
+        ) : (
           <View style={styles.empty}>
             <Feather name="package" size={32} color={colors.mutedForeground} />
             <Text style={styles.emptyText}>No products listed</Text>
           </View>
-        ) : (
-          products.map(renderProductCard)
-        )}
-
-        {totalItems > 0 && (
-          <Pressable
-            style={styles.viewCartBtn}
-            onPress={async () => {
-              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              router.push("/cart" as any);
-            }}
-          >
-            <Feather name="shopping-cart" size={18} color="#fff" />
-            <Text style={styles.viewCartBtnText}>View Cart ({totalItems})</Text>
-          </Pressable>
-        )}
-        <View style={styles.footer} />
-      </View>
-    </ScrollView>
+        )
+      }
+      ListFooterComponent={
+        <View style={styles.listEdge}>
+          {totalItems > 0 && (
+            <Pressable
+              style={styles.viewCartBtn}
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                router.push("/cart" as any);
+              }}
+            >
+              <Feather name="shopping-cart" size={18} color="#fff" />
+              <Text style={styles.viewCartBtnText}>View Cart ({totalItems})</Text>
+            </Pressable>
+          )}
+          <View style={styles.footer} />
+        </View>
+      }
+    />
   );
 }

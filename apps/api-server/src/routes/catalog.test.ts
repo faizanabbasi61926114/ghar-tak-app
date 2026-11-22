@@ -1,0 +1,224 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import {
+  SIGNED_IN_AS,
+  api,
+  createProduct,
+  createProvider,
+  createService,
+  resetDatabase,
+} from "../test/helpers";
+
+const SELLER = "seller-1";
+
+describe("products and services", () => {
+  beforeEach(resetDatabase);
+
+  it("lets the owner add, edit and delete a product", async () => {
+    const store = await createProvider(SELLER);
+
+    const created = await api()
+      .post(`/api/providers/${store.id}/products`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ name: "Eggs (12)", price: 420, stock: 30, category: "Dairy" });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ name: "Eggs (12)", price: 420, stock: 30 });
+
+    const edited = await api()
+      .patch(`/api/products/${created.body.id}`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ name: "Eggs (dozen)", price: 450, stock: 25, description: "Farm eggs" });
+    expect(edited.status).toBe(200);
+    expect(edited.body).toMatchObject({ name: "Eggs (dozen)", price: 450, stock: 25 });
+
+    const deleted = await api().delete(`/api/products/${created.body.id}`).set(SIGNED_IN_AS, SELLER);
+    expect(deleted.status).toBe(204);
+
+    const list = await api().get(`/api/providers/${store.id}/products`);
+    expect(list.body).toEqual([]);
+  });
+
+  it.each([
+    ["no name", { name: "", price: 100, stock: 1, category: "General" }],
+    ["a negative price", { name: "Eggs", price: -1, stock: 1, category: "General" }],
+    ["a fractional stock", { name: "Eggs", price: 100, stock: 2.5, category: "General" }],
+    ["a text price", { name: "Eggs", price: "abc", stock: 1, category: "General" }],
+  ])("rejects a new product with %s", async (_label, product) => {
+    const store = await createProvider(SELLER);
+    const res = await api()
+      .post(`/api/providers/${store.id}/products`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send(product);
+    expect(res.status).toBe(400);
+  });
+
+  it("stops other users from changing a store's products", async () => {
+    const store = await createProvider(SELLER);
+    const milk = await createProduct(store.id);
+
+    const create = await api()
+      .post(`/api/providers/${store.id}/products`)
+      .set(SIGNED_IN_AS, "someone-else")
+      .send({ name: "Fake", price: 1, stock: 1, category: "General" });
+    expect(create.status).toBe(401);
+
+    const edit = await api()
+      .patch(`/api/products/${milk.id}`)
+      .set(SIGNED_IN_AS, "someone-else")
+      .send({ price: 1 });
+    expect(edit.status).toBe(401);
+  });
+
+  it("keeps a product in its own store when the owner edits it", async () => {
+    const mine = await createProvider(SELLER);
+    const rival = await createProvider("rival-seller", { name: "Rival Store" });
+    const milk = await createProduct(mine.id);
+
+    const res = await api()
+      .patch(`/api/products/${milk.id}`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ price: 200, providerId: rival.id, id: "new-id" });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: milk.id, providerId: mine.id, price: 200 });
+
+    const rivalProducts = await api().get(`/api/providers/${rival.id}/products`);
+    expect(rivalProducts.body).toEqual([]);
+  });
+
+  it("accepts a cleared description and rejects a fractional stock on edit", async () => {
+    const store = await createProvider(SELLER);
+    const milk = await createProduct(store.id, { description: "Full cream" });
+
+    const cleared = await api()
+      .patch(`/api/products/${milk.id}`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ name: "Milk", price: 180, stock: 5, description: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.description).toBeNull();
+
+    const fractional = await api()
+      .patch(`/api/products/${milk.id}`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ stock: 2.5 });
+    expect(fractional.status).toBe(400);
+  });
+
+  it("lets the owner clear a product's SKU and image and a service's duration", async () => {
+    const store = await createProvider(SELLER);
+    const milk = await createProduct(store.id, { sku: "SKU-OLD", imageUrl: "https://img.example.test/x.png" });
+    const product = await api()
+      .patch(`/api/products/${milk.id}`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ sku: null, imageUrl: null });
+    expect(product.status).toBe(200);
+    expect(product.body).toMatchObject({ sku: null, imageUrl: null });
+
+    const repair = await createService(store.id, { duration: "2 hours" });
+    const service = await api()
+      .patch(`/api/services/${repair.id}`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ duration: null });
+    expect(service.status).toBe(200);
+    expect(service.body.duration).toBeNull();
+  });
+
+  it("names the field when product or service input is too long or too large", async () => {
+    const store = await createProvider(SELLER);
+    const longCategory = await api()
+      .post(`/api/providers/${store.id}/products`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ name: "Milk", price: 180, stock: 1, category: "x".repeat(101) });
+    expect(longCategory.status).toBe(400);
+    expect(longCategory.body.fields[0].field).toBe("category");
+
+    const hugePrice = await api()
+      .post(`/api/providers/${store.id}/products`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ name: "Gold", price: 100000000, stock: 1, category: "Jewellery" });
+    expect(hugePrice.status).toBe(400);
+    expect(hugePrice.body.fields[0].field).toBe("price");
+
+    const longDuration = await api()
+      .post(`/api/providers/${store.id}/services`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ name: "Repair", priceRange: "PKR 500", category: "General", duration: "x".repeat(101) });
+    expect(longDuration.status).toBe(400);
+    expect(longDuration.body.fields[0].field).toBe("duration");
+  });
+
+  it("keeps a service with its own provider when the owner edits it", async () => {
+    const mine = await createProvider(SELLER, { type: "service" });
+    const rival = await createProvider("rival-seller", { type: "service" });
+    const repair = await createService(mine.id);
+
+    const res = await api()
+      .patch(`/api/services/${repair.id}`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ name: "Leak Repair", providerId: rival.id, description: null });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ providerId: mine.id, description: null });
+  });
+
+  it("lets the owner add and edit a service", async () => {
+    const provider = await createProvider(SELLER, { type: "service" });
+
+    const created = await api()
+      .post(`/api/providers/${provider.id}/services`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ name: "Leak Repair", priceRange: "PKR 500 - 1,500", category: "plumber" });
+    expect(created.status).toBe(201);
+
+    const edited = await api()
+      .patch(`/api/services/${created.body.id}`)
+      .set(SIGNED_IN_AS, SELLER)
+      .send({ priceRange: "PKR 800 - 2,000", isAvailable: false });
+    expect(edited.status).toBe(200);
+    expect(edited.body).toMatchObject({ priceRange: "PKR 800 - 2,000", isAvailable: false });
+
+    const other = await createService(provider.id);
+    const blocked = await api()
+      .patch(`/api/services/${other.id}`)
+      .set(SIGNED_IN_AS, "someone-else")
+      .send({ name: "Hijacked" });
+    expect(blocked.status).toBe(401);
+  });
+});
+
+describe("items switched off by the seller", () => {
+  beforeEach(resetDatabase);
+
+  it("hides them from customers but keeps them for the store's owner", async () => {
+    const store = await createProvider(SELLER);
+    await createProduct(store.id, { name: "Milk" });
+    await createProduct(store.id, { name: "Yogurt", isAvailable: false });
+    await createService(store.id, { name: "Home delivery setup" });
+    await createService(store.id, { name: "Gift wrapping", isAvailable: false });
+    const names = (res: { body: { name: string }[] }) => res.body.map((item) => item.name).sort();
+
+    for (const visitor of [undefined, "customer-1"]) {
+      const asVisitor = (path: string) => {
+        const req = api().get(path);
+        return visitor ? req.set(SIGNED_IN_AS, visitor) : req;
+      };
+      expect(names(await asVisitor(`/api/providers/${store.id}/products`))).toEqual(["Milk"]);
+      expect(names(await asVisitor(`/api/providers/${store.id}/services`))).toEqual(["Home delivery setup"]);
+    }
+
+    const ownerProducts = await api().get(`/api/providers/${store.id}/products`).set(SIGNED_IN_AS, SELLER);
+    expect(names(ownerProducts)).toEqual(["Milk", "Yogurt"]);
+    const ownerServices = await api().get(`/api/providers/${store.id}/services`).set(SIGNED_IN_AS, SELLER);
+    expect(names(ownerServices)).toEqual(["Gift wrapping", "Home delivery setup"]);
+  });
+
+  it("leaves them out of search", async () => {
+    const store = await createProvider(SELLER);
+    await createProduct(store.id, { name: "Fresh Milk" });
+    await createProduct(store.id, { name: "Milk Powder", isAvailable: false });
+    await createService(store.id, { name: "Milk delivery" });
+    await createService(store.id, { name: "Milk tasting", isAvailable: false });
+
+    const found = await api().get("/api/search").query({ q: "milk" });
+    expect(found.status).toBe(200);
+    expect(found.body.products.map((p: { name: string }) => p.name)).toEqual(["Fresh Milk"]);
+    expect(found.body.services.map((s: { name: string }) => s.name)).toEqual(["Milk delivery"]);
+  });
+});

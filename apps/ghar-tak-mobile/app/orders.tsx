@@ -2,9 +2,9 @@ import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
 import {
+  FlatList,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCart } from "@/context/CartContext";
 import { useColors } from "@/hooks/useColors";
 import { useThemedStyles } from "@/hooks/useThemedStyles";
+import { formatPKR } from "@/lib/pricing";
 
 const STATUS_COLORS: Record<string, string> = {
   placed: "#f59e0b",
@@ -126,11 +127,16 @@ export default function OrdersScreen() {
           </Pressable>
         </View>
       ) : (
-        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          {orders.map((order) => {
+        // Order history only grows, so only the orders near the screen are mounted.
+        <FlatList
+          style={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          data={orders}
+          keyExtractor={(order) => order.id}
+          renderItem={({ item: order }) => {
             const statusColor = STATUS_COLORS[order.status] ?? "#f59e0b";
             return (
-              <View key={order.id} style={styles.orderCard}>
+              <View style={styles.orderCard}>
                 <View style={styles.orderHeader}>
                   <View>
                     <Text style={styles.orderId}>Order {order.id.replace("order_", "#")}</Text>
@@ -149,7 +155,7 @@ export default function OrdersScreen() {
                   <View key={item.product.id} style={styles.itemRow}>
                     <Text style={styles.itemName} numberOfLines={1}>{item.product.name}</Text>
                     <Text style={styles.itemQtyPrice}>
-                      ×{item.quantity} · ${(item.product.price * item.quantity).toFixed(2)}
+                      ×{item.quantity} · {formatPKR(item.product.price * item.quantity)}
                     </Text>
                   </View>
                 ))}
@@ -158,7 +164,7 @@ export default function OrdersScreen() {
 
                 <View style={styles.totalRow}>
                   <Text style={styles.totalLabel}>Total paid</Text>
-                  <Text style={styles.totalValue}>${order.total.toFixed(2)}</Text>
+                  <Text style={styles.totalValue}>{formatPKR(order.total)}</Text>
                 </View>
 
                 <View style={styles.addressRow}>
@@ -167,9 +173,9 @@ export default function OrdersScreen() {
                 </View>
               </View>
             );
-          })}
-          <View style={styles.footer} />
-        </ScrollView>
+          }}
+          ListFooterComponent={<View style={styles.footer} />}
+        />
       )}
     </View>
   );
