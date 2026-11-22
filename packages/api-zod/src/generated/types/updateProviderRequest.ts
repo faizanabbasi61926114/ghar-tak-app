@@ -5,6 +5,9 @@
  * Ghar Tak — hyperlocal services & delivery SaaS API
  * OpenAPI spec version: 0.2.0
  */
+import type { DeliveryRadiusKm } from './deliveryRadiusKm';
+import type { Latitude } from './latitude';
+import type { Longitude } from './longitude';
 
 export interface UpdateProviderRequest {
   /**
@@ -12,6 +15,7 @@ export interface UpdateProviderRequest {
      * @maxLength 255
      */
   name?: string;
+  /** @maxLength 2000 */
   description?: string;
   /** @maxLength 500 */
   address?: string;
@@ -22,9 +26,12 @@ export interface UpdateProviderRequest {
   isOpen?: boolean;
   /** @maxLength 100 */
   openingHours?: string;
-  /** @maxLength 50 */
-  deliveryRadius?: string;
+  deliveryRadiusKm?: DeliveryRadiusKm;
+  lat?: Latitude;
+  lng?: Longitude;
+  /** @maxLength 2048 */
   avatarUrl?: string;
+  /** @maxLength 2048 */
   coverUrl?: string;
   /** @maxLength 100 */
   category?: string;

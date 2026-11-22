@@ -15,12 +15,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCart } from "@/context/CartContext";
 import { useColors } from "@/hooks/useColors";
 import { useThemedStyles } from "@/hooks/useThemedStyles";
+import { deliveryFeeFor, formatPKR, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
 
 export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const { items, removeItem, updateQuantity, totalItems, totalPrice } = useCart();
+  const deliveryFee = deliveryFeeFor(totalPrice);
+  const grandTotal = totalPrice + deliveryFee;
 
   const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
@@ -88,6 +91,7 @@ export default function CartScreen() {
       borderWidth: 1,
       borderColor: colors.border,
     },
+    qtyBtnDisabled: { opacity: 0.5 },
     qtyText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: colors.foreground, minWidth: 20, textAlign: "center" as const },
     deleteBtn: { padding: 6 },
     summaryBox: {
@@ -140,7 +144,7 @@ export default function CartScreen() {
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.product.name}</Text>
                 {item.storeName && <Text style={styles.itemStore}>{item.storeName}</Text>}
-                <Text style={styles.itemPrice}>${(item.product.price * item.quantity).toFixed(2)}</Text>
+                <Text style={styles.itemPrice}>{formatPKR(item.product.price * item.quantity)}</Text>
               </View>
               <View style={styles.qtyRow}>
                 <Pressable
@@ -154,11 +158,13 @@ export default function CartScreen() {
                 </Pressable>
                 <Text style={styles.qtyText}>{item.quantity}</Text>
                 <Pressable
-                  style={styles.qtyBtn}
+                  style={[styles.qtyBtn, item.quantity >= item.product.stock && styles.qtyBtnDisabled]}
                   onPress={async () => {
                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     updateQuantity(item.product.id, item.quantity + 1);
                   }}
+                  // As in the website's cart: no more than the shop has.
+                  disabled={item.quantity >= item.product.stock}
                 >
                   <Feather name="plus" size={14} color={colors.foreground} />
                 </Pressable>
@@ -178,16 +184,21 @@ export default function CartScreen() {
           <View style={styles.summaryBox}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal ({totalItems} items)</Text>
-              <Text style={styles.summaryValue}>${totalPrice.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>{formatPKR(totalPrice)}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Delivery fee</Text>
-              <Text style={styles.summaryValue}>$2.00</Text>
+              <Text style={styles.summaryValue}>{deliveryFee === 0 ? "Free" : formatPKR(deliveryFee)}</Text>
             </View>
+            {deliveryFee > 0 && (
+              <Text style={styles.summaryLabel}>
+                Add PKR {Math.ceil(FREE_DELIVERY_THRESHOLD - totalPrice)} more for free delivery.
+              </Text>
+            )}
             <View style={styles.divider} />
             <View style={styles.summaryRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>${(totalPrice + 2).toFixed(2)}</Text>
+              <Text style={styles.totalValue}>{formatPKR(grandTotal)}</Text>
             </View>
           </View>
         </ScrollView>
@@ -201,7 +212,7 @@ export default function CartScreen() {
             router.push("/checkout" as any);
           }}
         >
-          <Text style={styles.checkoutBtnText}>Proceed to Checkout — ${(totalPrice + 2).toFixed(2)}</Text>
+          <Text style={styles.checkoutBtnText}>Proceed to Checkout — {formatPKR(grandTotal)}</Text>
         </Pressable>
       )}
     </View>

@@ -4,16 +4,26 @@ import React from "react";
 import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { CatalogNotice } from "@/components/LoadState";
+import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useFavorites } from "@/hooks/useFavorites";
+import { useNearbyFilter } from "@/hooks/useNearby";
 import { useThemedStyles } from "@/hooks/useThemedStyles";
 import { useData } from "@/context/DataContext";
+import { deliveryRadiusLabel, distanceLabel, distanceTo } from "@/lib/data";
 
 export default function FavoritesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { stores } = useData();
-  const favorites = stores.filter((s) => s.isFavorite);
+  const { user } = useAuth();
+  const { stores, ready } = useData();
+  // The hearts on the Stores tab and store pages save here.
+  const { favouriteIds } = useFavorites();
+  const favorites = stores.filter((s) => favouriteIds.has(s.id));
+  // Every favourite stays listed, near or far; the distance just helps.
+  const { point, approximate } = useNearbyFilter();
 
   const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
@@ -62,6 +72,7 @@ export default function FavoritesScreen() {
     empty: { alignItems: "center", paddingTop: 60 },
     emptyText: { fontSize: 16, color: colors.mutedForeground, fontFamily: "Inter_500Medium", marginTop: 12 },
     emptySubtext: { fontSize: 13, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 6, textAlign: "center" as const },
+    signInLink: { fontSize: 14, color: colors.primary, fontFamily: "Inter_600SemiBold", marginTop: 12 },
     footer: { height: isWeb ? 34 : insets.bottom + 20 },
   }));
 
@@ -78,28 +89,51 @@ export default function FavoritesScreen() {
         contentContainerStyle={styles.content}
         data={favorites}
         keyExtractor={(store) => store.id}
+        ListHeaderComponent={<CatalogNotice />}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Feather name="heart" size={40} color={colors.mutedForeground} />
-            <Text style={styles.emptyText}>No favorites yet</Text>
-            <Text style={styles.emptySubtext}>Tap the heart icon on any store to save it here</Text>
-          </View>
+          !ready ? undefined : !user ? (
+            <View style={styles.empty}>
+              <Feather name="heart" size={40} color={colors.mutedForeground} />
+              <Text style={styles.emptyText}>Sign in to save favorites</Text>
+              <Pressable onPress={() => router.push("/signin")}>
+                <Text style={styles.signInLink}>Sign in</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Feather name="heart" size={40} color={colors.mutedForeground} />
+              <Text style={styles.emptyText}>No favorites yet</Text>
+              <Text style={styles.emptySubtext}>Tap the heart icon on any store to save it here</Text>
+            </View>
+          )
         }
-        renderItem={({ item: store }) => (
-          <Pressable
-            style={styles.card}
-            onPress={() => router.push({ pathname: "/store/[id]", params: { id: store.id } })}
-          >
-            <View style={styles.iconWrap}>
-              <Feather name="heart" size={22} color="#ef4444" />
-            </View>
-            <View style={styles.info}>
-              <Text style={styles.name}>{store.name}</Text>
-              <Text style={styles.meta}>{store.category} • {store.rating} ★ • {store.deliveryTime}</Text>
-            </View>
-            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
-          </Pressable>
-        )}
+        renderItem={({ item: store }) => {
+          const km = distanceTo(point, store);
+          return (
+            <Pressable
+              style={styles.card}
+              onPress={() => router.push({ pathname: "/store/[id]", params: { id: store.id } })}
+            >
+              <View style={styles.iconWrap}>
+                <Feather name="heart" size={22} color="#ef4444" />
+              </View>
+              <View style={styles.info}>
+                <Text style={styles.name}>{store.name}</Text>
+                <Text style={styles.meta}>
+                  {[
+                    store.category,
+                    store.rating > 0 ? `${store.rating.toFixed(1)} ★` : null,
+                    deliveryRadiusLabel(store.deliveryRadiusKm),
+                    km !== null ? distanceLabel(km, approximate) : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" • ")}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          );
+        }}
         ListFooterComponent={<View style={styles.footer} />}
       />
     </View>

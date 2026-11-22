@@ -125,12 +125,13 @@ paths:
             type: string
         - name: lat
           in: query
+          description: With lng, lists only the providers whose delivery radius reaches this point, nearest first, each with distanceKm.
           schema:
-            type: number
+            $ref: "#/components/schemas/Latitude"
         - name: lng
           in: query
           schema:
-            type: number
+            $ref: "#/components/schemas/Longitude"
       responses:
         "200":
           description: List of providers
@@ -1110,12 +1111,16 @@ components:
           type: boolean
         openingHours:
           type: [string, "null"]
-        deliveryRadius:
-          type: [string, "null"]
+        deliveryRadiusKm:
+          type: [number, "null"]
+          description: How far the provider delivers or travels, in km in a straight line. Null means the default (5 km).
         lat:
           type: [number, "null"]
         lng:
           type: [number, "null"]
+        distanceKm:
+          type: number
+          description: Straight-line km from the lat/lng the list was asked for. Only sent on such lists.
         rating:
           type: number
         reviewCount:
@@ -1145,6 +1150,7 @@ components:
           enum: [store, service, restaurant]
         description:
           type: string
+          maxLength: 2000
         address:
           type: string
           maxLength: 500
@@ -1160,9 +1166,28 @@ components:
         openingHours:
           type: string
           maxLength: 100
-        deliveryRadius:
-          type: string
-          maxLength: 50
+        deliveryRadiusKm:
+          $ref: "#/components/schemas/DeliveryRadiusKm"
+        lat:
+          $ref: "#/components/schemas/Latitude"
+        lng:
+          $ref: "#/components/schemas/Longitude"
+
+    DeliveryRadiusKm:
+      type: number
+      minimum: 0.5
+      maximum: 50
+      description: Delivery or service radius in km. The limits match @workspace/geo.
+
+    Latitude:
+      type: number
+      minimum: -90
+      maximum: 90
+
+    Longitude:
+      type: number
+      minimum: -180
+      maximum: 180
 
     UpdateProviderRequest:
       type: object
@@ -1173,6 +1198,7 @@ components:
           maxLength: 255
         description:
           type: string
+          maxLength: 2000
         address:
           type: string
           maxLength: 500
@@ -1187,13 +1213,18 @@ components:
         openingHours:
           type: string
           maxLength: 100
-        deliveryRadius:
-          type: string
-          maxLength: 50
+        deliveryRadiusKm:
+          $ref: "#/components/schemas/DeliveryRadiusKm"
+        lat:
+          $ref: "#/components/schemas/Latitude"
+        lng:
+          $ref: "#/components/schemas/Longitude"
         avatarUrl:
           type: string
+          maxLength: 2048
         coverUrl:
           type: string
+          maxLength: 2048
         category:
           type: string
           maxLength: 100

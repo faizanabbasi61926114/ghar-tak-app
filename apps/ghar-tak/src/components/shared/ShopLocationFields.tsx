@@ -1,0 +1,131 @@
+import { useId, useState } from 'react';
+import {
+  CITIES,
+  DEFAULT_DELIVERY_RADIUS_KM,
+  MAX_DELIVERY_RADIUS_KM,
+  MIN_DELIVERY_RADIUS_KM,
+  isWideView,
+  type Coords,
+  type PointOrigin,
+} from '@workspace/geo';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import LazyLocationPicker from '@/components/shared/LazyLocationPicker';
+
+export interface ShopLocation {
+  point: Coords | null;
+  /** As typed, so the field can be empty or half-typed while editing. */
+  radiusKm: string;
+}
+
+export function initialShopLocation(shop?: {
+  lat?: number | null;
+  lng?: number | null;
+  deliveryRadiusKm?: number | null;
+}): ShopLocation {
+  return {
+    point: shop?.lat != null && shop?.lng != null ? { lat: shop.lat, lng: shop.lng } : null,
+    radiusKm: String(shop?.deliveryRadiusKm ?? DEFAULT_DELIVERY_RADIUS_KM),
+  };
+}
+
+/** What's wrong with the typed radius, or null when it can be saved. */
+export function radiusProblem(radiusKm: string): string | null {
+  const km = Number(radiusKm);
+  if (radiusKm.trim() === '' || !Number.isFinite(km)) return 'Enter a distance in km.';
+  if (km < MIN_DELIVERY_RADIUS_KM || km > MAX_DELIVERY_RADIUS_KM) {
+    return `Enter a distance from ${MIN_DELIVERY_RADIUS_KM} to ${MAX_DELIVERY_RADIUS_KM} km.`;
+  }
+  return null;
+}
+
+/** The fields to send to the API. Call only when radiusProblem() is null. */
+export function shopLocationRequest(location: ShopLocation) {
+  // The database keeps one decimal, so send exactly what it will store (1.25 would become 1.3).
+  const deliveryRadiusKm = Math.round(Number(location.radiusKm) * 10) / 10;
+  return { ...(location.point ?? {}), deliveryRadiusKm };
+}
+
+export default function ShopLocationFields({
+  providerType,
+  value,
+  onChange,
+  openAt,
+}: {
+  providerType: string;
+  value: ShopLocation;
+  onChange: (value: ShopLocation) => void;
+  openAt?: Coords | null;
+}) {
+  const radiusId = useId();
+  const radiusHelpId = useId();
+  const locationLabelId = useId();
+  const isService = providerType === 'service';
+  const problem = radiusProblem(value.radiusKm);
+  const [jumpTo, setJumpTo] = useState<{ point: Coords; zoom: number } | null>(null);
+  // How the pin got where it is: a city button or a far-out drag only puts it near the shop.
+  const [origin, setOrigin] = useState<PointOrigin | null>(null);
+  const roughPin = origin?.kind === 'jump' || (origin?.kind === 'moved' && isWideView(origin.viewKm));
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label id={locationLabelId}>{isService ? 'Where you work from' : 'Shop location on the map'}</Label>
+        <p className="text-sm text-muted-foreground">
+          Move the map until the pin sits on your {isService ? 'base' : 'shop'}. Customers only see you in their
+          "near me" lists once this is set.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {CITIES.map((city) => (
+            <Button
+              key={city.name}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setJumpTo({ point: { lat: city.lat, lng: city.lng }, zoom: 13 })}
+            >
+              {city.name}
+            </Button>
+          ))}
+        </div>
+        <LazyLocationPicker
+          value={value.point}
+          onChange={(point, how) => {
+            setOrigin(how);
+            onChange({ ...value, point });
+          }}
+          openAt={openAt}
+          jumpTo={jumpTo}
+          labelledBy={locationLabelId}
+        />
+        {roughPin && (
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Zoom in and drag the map until the pin sits exactly on your {isService ? 'base' : 'shop'}: customers' distances are
+            measured from it.
+          </p>
+        )}
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={radiusId}>{isService ? 'Service area (km)' : 'Delivery radius (km)'}</Label>
+        <Input
+          id={radiusId}
+          type="number"
+          inputMode="decimal"
+          min={MIN_DELIVERY_RADIUS_KM}
+          max={MAX_DELIVERY_RADIUS_KM}
+          step="any"
+          value={value.radiusKm}
+          onChange={(e) => onChange({ ...value, radiusKm: e.target.value })}
+          aria-invalid={problem !== null}
+          aria-describedby={radiusHelpId}
+          className="max-w-[10rem]"
+        />
+        <p id={radiusHelpId} className={`text-xs ${problem ? 'text-destructive' : 'text-muted-foreground'}`}>
+          {problem ??
+            `How far you ${isService ? 'travel to customers' : 'deliver'}, in a straight line from the pin, e.g. 5 or 2.5. ${MIN_DELIVERY_RADIUS_KM} to ${MAX_DELIVERY_RADIUS_KM} km.`}
+        </p>
+      </div>
+    </div>
+  );
+}

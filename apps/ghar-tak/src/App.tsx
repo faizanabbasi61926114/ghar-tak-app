@@ -6,9 +6,9 @@ import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { Switch, Route, useLocation, useSearch, Router as WouterRouter, Redirect } from 'wouter';
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
-import { DataProvider } from "@/context/DataContext";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/shared/CartDrawer";
+import { LocationChooserProvider } from "@/components/shared/LocationChooser";
 import { Toaster } from "@/components/ui/toaster";
 import AppLayout from "@/components/layout/AppLayout";
 
@@ -54,16 +54,25 @@ if (!clerkPubKey) {
 }
 
 // A 4xx answer (not found, not allowed) won't change on a retry, so show it straight away
-// instead of retrying three times. Network and server errors keep the usual retries.
+// instead of retrying three times. A request that timed out (20 s) is tried once more.
+// Network and server errors keep the usual retries.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: (failureCount, error) => {
         const status = (error as { status?: number } | null)?.status;
         if (typeof status === 'number' && status >= 400 && status < 500) return false;
+        if ((error as { name?: string } | null)?.name === 'TimeoutError') return failureCount < 1;
         return failureCount < 3;
       },
+      // Offline, TanStack would otherwise pause a request: the page then has neither data nor
+      // an error, and lists fell through to "No stores deliver to your location yet". Trying
+      // anyway fails fast, and the page shows "couldn't load" with Try again instead.
+      networkMode: 'always',
     },
+    // A save or an order made offline fails at once with "Can't reach Ghar Tak" instead of
+    // waiting, spinner on, to go through by itself whenever the connection comes back.
+    mutations: { networkMode: 'always' },
   },
 });
 
@@ -139,7 +148,21 @@ function returnUrl(): string {
   try {
     path = sessionStorage.getItem(RETURN_PATH_KEY) || '/';
   } catch { /* use Home */ }
-  return `${basePath}${path}`;
+  return `${basePath}${isOwnPath(path) ? path : '/'}`;
+}
+
+/**
+ * Only a path on this site. "//other.site", "/\other.site" and "/<tab>/other.site" (browsers
+ * drop tabs and line breaks from a link, and wouter decodes "%09" into a tab) would all send
+ * the customer to another site once they signed in.
+ */
+function isOwnPath(path: string): boolean {
+  if (!/^\/(?![/\\])/.test(path) || /[\x00-\x1f\x7f]/.test(path)) return false;
+  try {
+    return new URL(path, window.location.origin).origin === window.location.origin;
+  } catch {
+    return false;
+  }
 }
 
 function SignInPageComponent() {
@@ -276,15 +299,15 @@ function ClerkProviderWithRoutes() {
         <ClerkQueryCacheInvalidator />
         <ApiClientAuthSync />
         <ReturnPathRecorder />
-        <DataProvider>
-          <CartProvider>
+        <CartProvider>
+          <LocationChooserProvider>
             <Layout>
               <Router />
             </Layout>
-            <CartDrawer />
-            <Toaster />
-          </CartProvider>
-        </DataProvider>
+          </LocationChooserProvider>
+          <CartDrawer />
+          <Toaster />
+        </CartProvider>
       </QueryClientProvider>
     </ClerkProvider>
   );

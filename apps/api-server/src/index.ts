@@ -2,11 +2,13 @@ import "dotenv/config";
 import app from "./app";
 import { logger } from "./lib/logger";
 
-const rawPort = process.env["API_PORT"];
+// API_PORT, or PORT where the host sets that (most container platforms do). In development
+// .env holds both: PORT is the website's, so API_PORT comes first.
+const rawPort = process.env["API_PORT"] || process.env["PORT"];
 
 if (!rawPort) {
   throw new Error(
-    "PORT environment variable is required but was not provided.",
+    "API_PORT (or PORT) environment variable is required but was not provided.",
   );
 }
 

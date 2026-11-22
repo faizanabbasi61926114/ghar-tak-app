@@ -12,15 +12,23 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { CatalogNotice } from "@/components/LoadState";
+import { NearbyScopeLine, NearRequestState, NoneNearby } from "@/components/NearbyScope";
 import { useColors } from "@/hooks/useColors";
+import { useNearbyCatalog, useShowAll } from "@/hooks/useNearby";
 import { useThemedStyles } from "@/hooks/useThemedStyles";
 import { useData } from "@/context/DataContext";
+import { categoryLabel, distanceLabel, distanceTo, openStatusLabel } from "@/lib/data";
 
 export default function ServicesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { serviceCategories, serviceProviders, refreshing, refresh } = useData();
+  const { serviceCategories, ready } = useData();
+  const { showAll, setShowAll } = useShowAll();
+  const { point, filterPoint, approximate, serviceProviders, near, refreshing, refresh } = useNearbyCatalog(showAll);
+  // The list itself, or null while the location or a near-me request is loading, or it failed.
+  const listReady = !near.loading && (filterPoint ? !near.error : ready);
 
   const styles = useThemedStyles(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
@@ -130,7 +138,8 @@ export default function ServicesScreen() {
     },
     provMeta: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 6 },
     metaText: { fontSize: 12, color: colors.foreground, fontFamily: "Inter_500Medium" },
-    metaMuted: { fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+    metaMuted: { fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular", flexShrink: 1 },
+    emptyText: { marginHorizontal: 16, fontSize: 14 },
 
     footer: { height: isWeb ? 34 : insets.bottom + 80 },
   }));
@@ -163,8 +172,11 @@ export default function ServicesScreen() {
         keyExtractor={(p) => p.id}
         ListHeaderComponent={
           <View style={styles.listHeader}>
-            {/* Categories grid — mirrors web's ServiceCategoriesSection */}
-            <Text style={styles.sectionTitle}>Browse by Category</Text>
+            <CatalogNotice />
+            {/* Categories grid — mirrors web's Service Categories page (GET /api/categories) */}
+            {serviceCategories.length > 0 && (
+              <Text style={styles.sectionTitle}>Browse by Category</Text>
+            )}
             <View style={styles.grid}>
               {serviceCategories.map((cat) => (
                 <Pressable
@@ -175,44 +187,78 @@ export default function ServicesScreen() {
                   }
                 >
                   <View style={styles.iconWrap}>
-                    <Feather name={cat.icon as any} size={20} color={colors.primary} />
+                    <Feather name={cat.icon} size={20} color={colors.primary} />
                   </View>
                   <Text style={styles.catName} numberOfLines={2}>{cat.name}</Text>
                 </Pressable>
               ))}
             </View>
 
-            {/* Featured Providers — mirrors web's NearbyProvidersSection */}
-            <View style={styles.providerSection}>
-              <Text style={styles.sectionTitle}>Featured Providers</Text>
-            </View>
+            {/* Service providers: like the website's Services page, those that reach the customer when it can tell */}
+            {(ready || filterPoint) && (
+              <View style={styles.providerSection}>
+                <Text style={styles.sectionTitle}>
+                  {filterPoint ? "Service Providers Near You" : "Service Providers"}
+                </Text>
+                {point ? <NearbyScopeLine showAll={showAll} approximate={approximate} onShowAll={setShowAll} /> : null}
+              </View>
+            )}
+            {filterPoint || near.loading ? <NearRequestState near={near} what="service providers" /> : null}
           </View>
         }
-        renderItem={({ item: p }) => (
-          <Pressable
-            style={styles.provCard}
-            onPress={() =>
-              router.push({ pathname: "/provider/[id]", params: { id: p.id } })
-            }
-          >
-            <View style={styles.provAvatar}>
-              <Feather name="user" size={22} color={colors.primary} />
-            </View>
-            <View style={styles.provInfo}>
-              <Text style={styles.provName} numberOfLines={1}>{p.name}</Text>
-              <Text style={styles.provCat}>
-                {serviceCategories.find((c) => c.id === p.serviceCategory)?.name ?? p.serviceCategory}
-              </Text>
-              <View style={styles.provMeta}>
-                <Feather name="star" size={12} color="#f59e0b" />
-                <Text style={styles.metaText}>{p.rating}</Text>
-                <Feather name="map-pin" size={12} color={colors.mutedForeground} />
-                <Text style={styles.metaMuted}>{p.location.address}</Text>
+        ListEmptyComponent={
+          !listReady ? undefined : filterPoint ? (
+            <NoneNearby
+              message="No service providers cover your location yet."
+              allLabel="See all service providers"
+              onAll={() => setShowAll(true)}
+            />
+          ) : (
+            <Text style={[styles.metaMuted, styles.emptyText]}>No service providers yet.</Text>
+          )
+        }
+        renderItem={({ item: p }) => {
+          const km = distanceTo(point, p);
+          return (
+            <Pressable
+              style={styles.provCard}
+              onPress={() =>
+                router.push({ pathname: "/provider/[id]", params: { id: p.id } })
+              }
+            >
+              <View style={styles.provAvatar}>
+                <Feather name="user" size={22} color={colors.primary} />
               </View>
-            </View>
-            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
-          </Pressable>
-        )}
+              <View style={styles.provInfo}>
+                <Text style={styles.provName} numberOfLines={1}>{p.name}</Text>
+                <Text style={styles.provCat}>
+                  {categoryLabel(p.serviceCategory, serviceCategories) || openStatusLabel(p)}
+                </Text>
+                <View style={styles.provMeta}>
+                  {p.rating > 0 && (
+                    <>
+                      <Feather name="star" size={12} color="#f59e0b" />
+                      <Text style={styles.metaText}>{p.rating.toFixed(1)}</Text>
+                    </>
+                  )}
+                  {p.location.address ? (
+                    <>
+                      <Feather name="map-pin" size={12} color={colors.mutedForeground} />
+                      <Text style={styles.metaMuted} numberOfLines={1}>{p.location.address}</Text>
+                    </>
+                  ) : null}
+                </View>
+                {km !== null ? (
+                  <View style={styles.provMeta}>
+                    <Feather name="navigation" size={12} color={colors.mutedForeground} />
+                    <Text style={styles.metaMuted}>{distanceLabel(km, approximate)}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          );
+        }}
         ListFooterComponent={<View style={styles.footer} />}
       />
     </View>

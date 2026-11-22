@@ -4,49 +4,48 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Loader2 } from 'lucide-react';
+import { googleMapsKeyRejected, hasGoogleMapsKey, loadGoogleMaps, onGoogleMapsKeyRejected } from '@/lib/googleMaps';
+import { useLocationChooser } from '@/components/shared/LocationChooser';
+import { useLocation } from '@/hooks/useLocation';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-
-function loadGoogleMapsScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (typeof window.google !== 'undefined' && window.google.maps) {
-      resolve();
-      return;
-    }
-    if (!GOOGLE_MAPS_API_KEY) {
-      reject(new Error('VITE_GOOGLE_MAPS_API_KEY is not set'));
-      return;
-    }
-    const existing = document.getElementById('google-maps-script');
-    if (existing) {
-      existing.addEventListener('load', () => resolve());
-      existing.addEventListener('error', () => reject(new Error('Google Maps script failed to load')));
-      return;
-    }
-    const script = document.createElement('script');
-    script.id = 'google-maps-script';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Google Maps script failed to load'));
-    document.head.appendChild(script);
-  });
+/**
+ * A place's name and area as text nodes. Google's InfoWindow treats a string as HTML, and
+ * business names on Google are written by the businesses themselves.
+ */
+function placeCard(name: string | undefined, vicinity: string | undefined): HTMLElement {
+  const card = document.createElement('div');
+  card.style.color = '#333';
+  card.style.fontFamily = 'sans-serif';
+  const title = document.createElement('strong');
+  title.textContent = name || 'Unknown place';
+  card.append(title, document.createElement('br'), document.createTextNode(vicinity || ''));
+  return card;
 }
-
-type MapsWindow = Window & { gm_authFailure?: () => void };
 
 // Google reports a rejected key only once per page load, so a setup failure is
 // remembered here; coming back to the home page must not show the map again.
 let mapSetupFailed = false;
 
+// Every search is a paid Google Places request, so the keyword is searched once typing pauses.
+const KEYWORD_DELAY_MS = 600;
+
 const NearbyMap = () => {
   const mapRef = useRef<HTMLDivElement | null>(null);
+  // The location the rest of the site uses, pinned or from the device. The site asks the
+  // device itself when nothing is saved, so the map doesn't ask again.
+  const { location: savedLocation } = useLocation();
+  const { openLocationChooser } = useLocationChooser();
+  const savedLat = savedLocation?.lat;
+  const savedLng = savedLocation?.lng;
   const [searchQuery, setSearchQuery] = useState('');
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [keyword, setKeyword] = useState('');
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(() =>
+    savedLocation ? { lat: savedLocation.lat, lng: savedLocation.lng } : null,
+  );
   const [selectedCategory, setSelectedCategory] = useState('store');
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
+  // The markers on the map now, so the next search (or leaving the page) removes them.
+  const markersRef = useRef<google.maps.Marker[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
   const [isLoadingMap, setIsLoadingMap] = useState(true);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
@@ -64,6 +63,11 @@ const NearbyMap = () => {
   const initializeMap = () => {
     if (!mapRef.current) {
       setIsLoadingMap(false);
+      return;
+    }
+    // A map already drawn in this box is reused: a second one would stack on top of it.
+    if (map) {
+      setMapError(null);
       return;
     }
 
@@ -92,13 +96,6 @@ const NearbyMap = () => {
         fullscreenControl: false,
       });
       setMap(newMapInstance);
-
-      if (userLocation) {
-        newMapInstance.setCenter(userLocation);
-        newMapInstance.setZoom(14);
-      } else {
-         handleLocationButtonClick(false, newMapInstance); // Attempt to get location on init
-      }
       setIsLoadingMap(false);
 
     } catch (e: any) {
@@ -122,47 +119,13 @@ const NearbyMap = () => {
     }
   };
   
-  const handleLocationButtonClick = (showError = true, currentMapInstance = map) => {
-    setIsLoadingMap(true); 
-    // Don't clear mapError here if it's a persistent API key issue
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const newLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          setUserLocation(newLocation);
-          if (currentMapInstance) {
-            currentMapInstance.setCenter(newLocation);
-            currentMapInstance.setZoom(14);
-          }
-          if (mapError && !mapError.toLowerCase().includes('api') && !mapError.toLowerCase().includes('billing')) {
-            setMapError(null); // Clear transient errors like "Could not get your location"
-          }
-          setIsLoadingMap(false);
-        },
-        (err) => {
-          console.warn('User denied location access or error occurred:', err.message);
-          if(showError) setMapError('Could not get your location. Please enable location services in your browser/OS settings.');
-          setIsLoadingMap(false);
-        }
-      );
-    } else {
-      if(showError) setMapError('Geolocation is not supported by this browser.');
-      setIsLoadingMap(false);
-    }
-  };
-
   useEffect(() => {
-    // Google calls this when it rejects the key (wrong key, blocked domain, no
-    // billing). Without it, Google draws its own error box inside the map.
-    const mapsWindow = window as MapsWindow;
-    const onAuthFailure = () => hideMap('Google Maps rejected the API key');
-    mapsWindow.gm_authFailure = onAuthFailure;
+    // Google rejects the key for a wrong key, a blocked domain or no billing.
+    // Without this, Google draws its own error box inside the map.
+    const stopListening = onGoogleMapsKeyRejected(() => hideMap('Google Maps rejected the API key'));
 
     setIsLoadingMap(true);
-    loadGoogleMapsScript()
+    loadGoogleMaps()
       .then(() => {
         initializeMap();
       })
@@ -173,22 +136,30 @@ const NearbyMap = () => {
         hideMap(msg);
       });
 
-    return () => {
-      if (mapsWindow.gm_authFailure === onAuthFailure) delete mapsWindow.gm_authFailure;
-    };
+    return stopListening;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
+  // Centre on the saved location once the map exists, and again whenever it changes.
   useEffect(() => {
-    if (!map || !userLocation) { // Don't search if map or location isn't ready
-      if (map && userLocation === null && !isLoadingMap && !mapError) {
-        // If map is ready but location is not, prompt user or show gentle message.
-        // For now, relies on initial handleLocationButtonClick or manual click.
-      }
-      return;
-    }
-    
+    if (savedLat === undefined || savedLng === undefined) return;
+    const point = { lat: savedLat, lng: savedLng };
+    // The same spot keeps the same object, so it doesn't trigger another places search.
+    setUserLocation((current) => (current?.lat === point.lat && current?.lng === point.lng ? current : point));
+    map?.setCenter(point);
+    map?.setZoom(14);
+  }, [savedLat, savedLng, map]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setKeyword(searchQuery), KEYWORD_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    // Don't search until there is a map and a location (the one the rest of the site uses).
+    if (!map || !userLocation) return;
+
     // If there's a map initialization error, don't attempt to search for places.
     if (mapError && (mapError.includes('API key') || mapError.includes('Billing') || mapError.includes('activated'))) {
       return;
@@ -200,24 +171,25 @@ const NearbyMap = () => {
       hideMap('Places library is missing; the Places API may not be enabled');
       return;
     }
-    // Clear previous places-specific error if map itself is okay and PlacesService is now available
-    if (mapError && mapError.startsWith('Places search functionality is unavailable')) {
-        setMapError(null);
-    }
-    
+    // A new search replaces whatever went wrong with the last one.
+    setMapError(null);
+
+    // A slower earlier search must not add its markers after this one has started.
+    let superseded = false;
     setIsSearchingPlaces(true);
     const service = new window.google.maps.places.PlacesService(map);
-    markers.forEach(marker => marker.setMap(null)); // Clear previous markers
-    setMarkers([]);
+    markersRef.current.forEach(marker => marker.setMap(null));
+    markersRef.current = [];
 
     service.nearbySearch(
       {
         location: userLocation,
         radius: 5000, // 5 km radius
         type: selectedCategory, // This should be a supported type string
-        keyword: searchQuery,
+        keyword,
       },
       (places, status) => {
+        if (superseded) return;
         setIsSearchingPlaces(false);
         if (status === window.google.maps.places.PlacesServiceStatus.OK && places) {
           const newMarkers = places.map(place => {
@@ -229,16 +201,14 @@ const NearbyMap = () => {
               title: place.name,
               // icon: // Optional: custom icon
             });
-            const infowindow = new window.google.maps.InfoWindow({
-              content: `<div style="color: #333; font-family: sans-serif;"><strong>${place.name || 'Unknown place'}</strong><br>${place.vicinity || ''}</div>`
-            });
+            const infowindow = new window.google.maps.InfoWindow({ content: placeCard(place.name, place.vicinity) });
             marker.addListener('click', () => {
               infowindow.open(map, marker);
             });
             return marker;
           }).filter(marker => marker !== null) as google.maps.Marker[];
-          setMarkers(newMarkers);
-          if (newMarkers.length === 0 && searchQuery) {
+          markersRef.current = newMarkers;
+          if (newMarkers.length === 0 && keyword) {
              // setMapError(`No results found for "${searchQuery}" in category "${selectedCategory}". Try a broader search.`);
           }
         } else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
@@ -254,12 +224,19 @@ const NearbyMap = () => {
         }
       }
     );
+    return () => {
+      superseded = true;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, userLocation, selectedCategory, map]); // mapError was removed from deps to avoid re-triggering search on error set
-  
+  }, [keyword, userLocation, selectedCategory, map]); // mapError was removed from deps to avoid re-triggering search on error set
+
+  // Leaving the page removes this map's markers with it.
+  useEffect(() => () => markersRef.current.forEach((marker) => marker.setMap(null)), []);
+
   if (unavailable) return null;
 
-  const controlsDisabled = !!mapError || isLoadingMap;
+  // A failed search shouldn't lock the inputs: changing them is how the customer tries again.
+  const controlsDisabled = isLoadingMap || !map;
 
   return (
     <Card className="shadow-lg my-8">
@@ -299,13 +276,9 @@ const NearbyMap = () => {
               <SelectItem value="shopping_mall">Shopping Mall</SelectItem>
             </SelectContent>
           </Select>
-          <Button 
-            onClick={() => handleLocationButtonClick()} 
-            disabled={isLoadingMap || (!!mapError && mapError.toLowerCase().includes('api'))} // Disable if API error, but allow if only "could not get location"
-            className="w-full sm:w-auto"
-          >
-            {(isLoadingMap && !userLocation && !mapError) || (isLoadingMap && mapError?.includes('Could not get')) ? (<Loader2 className="mr-2 h-4 w-4 animate-spin" />) : null}
-            {userLocation ? 'Refresh Location' : 'Use My Location'}
+          {/* The same location as every list on the site, so the map never disagrees with them. */}
+          <Button onClick={openLocationChooser} className="w-full sm:w-auto">
+            {userLocation ? 'Change location' : 'Set your location'}
           </Button>
         </div>
         
@@ -334,6 +307,6 @@ const NearbyMap = () => {
 };
 
 /** Without a Google Maps key the map has nothing to show, so the home page leaves it out. */
-const Map = () => (GOOGLE_MAPS_API_KEY && !mapSetupFailed ? <NearbyMap /> : null);
+const Map = () => (hasGoogleMapsKey && !mapSetupFailed && !googleMapsKeyRejected() ? <NearbyMap /> : null);
 
 export default Map;

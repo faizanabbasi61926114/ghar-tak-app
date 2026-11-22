@@ -11,8 +11,7 @@ import {
   type Service,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useLocation } from '@/hooks/useLocation';
-import { formatDistance, providerDistance } from '@/lib/geo';
+import DeliveryReach from '@/components/shared/DeliveryReach';
 import {
   ArrowLeft,
   BadgeCheck,
@@ -22,7 +21,6 @@ import {
   Loader2,
   MapPin,
   MessageSquare,
-  Navigation,
   Phone,
   Send,
   Star,
@@ -37,6 +35,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { couldNotLoad } from '@/lib/api-error';
+import LoadError from '@/components/shared/LoadError';
 
 const TIME_SLOTS = [
   '09:00 - 11:00',
@@ -57,9 +57,8 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
   const [, navigate] = useRouterLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { location, hasRealLocation } = useLocation();
 
-  const { data: provider, isLoading, isError } = useGetProvider(params.id, {
+  const { data: provider, isLoading, isError, error, isFetching, refetch } = useGetProvider(params.id, {
     query: { enabled: !!params.id, queryKey: ['getProvider', params.id] },
   });
   const { data: services, isLoading: servicesLoading } = useListProviderServices(params.id, {
@@ -185,7 +184,11 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
     return <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
   }
 
-  if (isError || !provider) {
+  // A refresh that fails (offline when the tab comes back into view) keeps the page on screen.
+  if (!provider) {
+    if (isError && couldNotLoad(error)) {
+      return <LoadError what="service provider" retrying={isFetching} onRetry={() => void refetch()} />;
+    }
     return (
       <div className="text-center py-16">
         <h1 className="text-2xl font-bold mb-4">Service provider not found</h1>
@@ -194,7 +197,6 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
     );
   }
 
-  const distance = providerDistance(hasRealLocation ? location : null, provider);
   const averageRating = reviewList.length
     ? reviewList.reduce((sum, review) => sum + review.rating, 0) / reviewList.length
     : provider.rating;
@@ -248,11 +250,7 @@ export default function ServiceProviderDetailPage({ params }: { params: { catego
             <div>
               <p className="font-medium text-sm">Location</p>
               <p className="text-muted-foreground text-sm">{provider.address || 'Service area varies'}</p>
-              {typeof distance === 'number' && (
-                <p className="text-xs text-primary flex items-center gap-1 mt-1">
-                  <Navigation className="h-3 w-3" /> {formatDistance(distance)} away
-                </p>
-              )}
+              <DeliveryReach provider={provider} className="text-xs mt-1" />
             </div>
           </CardContent>
         </Card>

@@ -1,50 +1,142 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, providersTable, productsTable, servicesTable, ordersTable, reviewsTable } from "@workspace/db";
-import { eq, and, ilike, or, count, avg, inArray, sql } from "drizzle-orm";
-import { CreateProviderBody, UpdateMyProviderBody } from "@workspace/api-zod";
+import { eq, and, ilike, or, count, avg, inArray, isNotNull, sql } from "drizzle-orm";
+import { z } from "zod";
+import { CreateProviderBody, ListProvidersQueryParams, UpdateMyProviderBody } from "@workspace/api-zod";
+import { DEFAULT_DELIVERY_RADIUS_KM, EARTH_RADIUS_KM, MAX_DELIVERY_RADIUS_KM, type Coords } from "@workspace/geo";
 import { parseBody } from "../lib/validation";
 import { requireAuth } from "./auth";
 import { categoryMatchTerms } from "./categories";
+import { providerJson } from "../lib/provider-json";
 
 const router: IRouter = Router();
 
-function mapProvider(p: any, isFavorite = false) {
+/**
+ * The map point and radius from a create or edit request, as the database stores them.
+ * A point needs both lat and lng: half of one would put the shop in the wrong place,
+ * so that gets a 400 and undefined back.
+ */
+function locationFields(
+  body: { lat?: number; lng?: number; deliveryRadiusKm?: number },
+  res: Response,
+): { lat?: string; lng?: string; deliveryRadiusKm?: string } | undefined {
+  if ((body.lat === undefined) !== (body.lng === undefined)) {
+    const missing = body.lat === undefined ? "lat" : "lng";
+    res.status(400).json({
+      error: "Invalid request",
+      fields: [{ field: missing, message: "Send lat and lng together" }],
+    });
+    return undefined;
+  }
+  // Exactly 0,0 is what a phone or browser sends when it has no real reading.
+  if (body.lat === 0 && body.lng === 0) {
+    res.status(400).json({
+      error: "Invalid request",
+      fields: [{ field: "lat", message: "Pick your shop's place on the map" }],
+    });
+    return undefined;
+  }
   return {
-    id: p.id,
-    userId: p.userId,
-    name: p.name,
-    type: p.type,
-    description: p.description ?? null,
-    address: p.address ?? null,
-    phone: p.phone ?? null,
-    email: p.email ?? null,
-    avatarUrl: p.avatarUrl ?? null,
-    coverUrl: p.coverUrl ?? null,
-    isOpen: p.isOpen ?? true,
-    openingHours: p.openingHours ?? null,
-    deliveryRadius: p.deliveryRadius ?? null,
-    lat: p.lat ? Number(p.lat) : null,
-    lng: p.lng ? Number(p.lng) : null,
-    rating: Number(p.rating ?? 0),
-    reviewCount: p.reviewCount ?? 0,
-    isFavorite,
-    planId: p.planId ?? null,
-    category: p.category ?? null,
-    isVerified: p.isVerified ?? false,
-    createdAt: p.createdAt.toISOString(),
+    ...(body.lat === undefined ? {} : { lat: String(body.lat), lng: String(body.lng) }),
+    ...(body.deliveryRadiusKm === undefined ? {} : { deliveryRadiusKm: String(body.deliveryRadiusKm) }),
   };
 }
 
+const CustomerPointQuery = ListProvidersQueryParams.pick({ lat: true, lng: true }).required();
+
+/** The customer's point from ?lat=&lng=: null when neither is sent, undefined once a 400 has gone out. */
+function customerPoint(req: Request, res: Response): Coords | null | undefined {
+  const { lat, lng } = req.query;
+  if (lat === undefined && lng === undefined) return null;
+  // An empty or blank value counts as missing; it would otherwise be read as 0.
+  const missing = Object.entries({ lat, lng })
+    .filter(([, value]) => value === undefined || (typeof value === "string" && value.trim() === ""))
+    .map(([field]) => ({ field, message: "Send lat and lng together" }));
+  if (missing.length > 0) {
+    res.status(400).json({ error: "Invalid request", fields: missing });
+    return undefined;
+  }
+  const parsed = CustomerPointQuery.safeParse({ lat, lng });
+  if (parsed.success) return parsed.data;
+  res.status(400).json({
+    error: "Invalid request",
+    fields: parsed.error.issues.map((issue) => ({ field: issue.path.join("."), message: issue.message })),
+  });
+  return undefined;
+}
+
+/** Straight-line km from `point` to each provider, by the same formula as distanceKm in @workspace/geo. */
+function distanceFrom(point: Coords) {
+  const lat = sql`${providersTable.lat}::float8`;
+  const lng = sql`${providersTable.lng}::float8`;
+  const fromLat = sql`${point.lat}::float8`;
+  const fromLng = sql`${point.lng}::float8`;
+  // greatest(0, …): rounding can leave a tiny negative number, which sqrt refuses.
+  return sql<number>`2 * ${EARTH_RADIUS_KM}::float8 * asin(least(1, sqrt(greatest(0,
+    power(sin(radians(${lat} - ${fromLat}) / 2), 2)
+    + cos(radians(${fromLat})) * cos(radians(${lat})) * power(sin(radians(${lng} - ${fromLng}) / 2), 2)
+  ))))`.mapWith(Number);
+}
+
+const DEGREES_PER_RADIAN = 180 / Math.PI;
+// Rounding slack, so a shop exactly on the box's edge is never missed (about 0.1 m).
+const BOX_SLACK_DEGREES = 1e-6;
+
+/**
+ * A box that holds every point within MAX_DELIVERY_RADIUS_KM of `point`: no shop can reach
+ * further (a check constraint keeps radii in range), so shops outside it can be skipped by
+ * the lat/lng index instead of being measured one by one.
+ */
+function reachBox(point: Coords) {
+  const angle = MAX_DELIVERY_RADIUS_KM / EARTH_RADIUS_KM;
+  const latSpan = angle * DEGREES_PER_RADIAN + BOX_SLACK_DEGREES;
+  const conditions = [sql`${providersTable.lat} BETWEEN ${point.lat - latSpan} AND ${point.lat + latSpan}`];
+  // The widest longitude on a circle of `angle` around a point at this latitude. When the
+  // circle reaches a pole every longitude is inside, and across the date line the band wraps:
+  // then only the latitude band is used.
+  const ratio = Math.sin(angle) / Math.cos(point.lat / DEGREES_PER_RADIAN);
+  if (ratio < 1) {
+    const lngSpan = Math.asin(ratio) * DEGREES_PER_RADIAN + BOX_SLACK_DEGREES;
+    if (point.lng - lngSpan >= -180 && point.lng + lngSpan <= 180) {
+      conditions.push(sql`${providersTable.lng} BETWEEN ${point.lng - lngSpan} AND ${point.lng + lngSpan}`);
+    }
+  }
+  return conditions;
+}
+
+// The list's filters come straight from the URL. A NUL byte would make Postgres fail (a 500),
+// and a repeated ?type= or ?q= arrives as an array.
+const filterText = z
+  .string()
+  .trim()
+  .max(100)
+  .refine((value) => !value.includes("\0"), "Invalid characters");
+const ListFilters = z.object({
+  type: z.enum(["store", "service", "restaurant"]).optional(),
+  q: filterText.optional(),
+  // A repeated ?category= arrives as an array; match any of the values.
+  category: z.union([filterText, z.array(filterText).max(10)]).optional(),
+});
+
 // GET /api/providers
 router.get("/providers", async (req: Request, res: Response) => {
+  const point = customerPoint(req, res);
+  if (point === undefined) return;
+  const filters = ListFilters.safeParse({ type: req.query.type, q: req.query.q, category: req.query.category });
+  if (!filters.success) {
+    res.status(400).json({
+      error: "Invalid request",
+      fields: filters.error.issues.map((issue) => ({ field: issue.path.join("."), message: issue.message })),
+    });
+    return;
+  }
+
   try {
-    const { type, q } = req.query as Record<string, string>;
-    let query = db.select().from(providersTable);
+    const { type, q } = filters.data;
 
     const conditions = [];
     if (type) conditions.push(eq(providersTable.type, type));
-    // A repeated ?category= arrives as an array; match any of the values.
-    const categories = [req.query.category].flat().filter((c): c is string => typeof c === "string" && c.trim() !== "");
+    const categories = [filters.data.category ?? []].flat().filter((c) => c !== "");
     if (categories.length > 0) {
       conditions.push(inArray(sql`lower(trim(${providersTable.category}))`, categories.flatMap(categoryMatchTerms)));
     }
@@ -57,11 +149,28 @@ router.get("/providers", async (req: Request, res: Response) => {
       );
     }
 
-    const rows = conditions.length > 0
-      ? await db.select().from(providersTable).where(and(...conditions))
-      : await db.select().from(providersTable);
+    if (point) {
+      // Only providers with a map point whose own radius (or the default) reaches the customer.
+      const distance = distanceFrom(point);
+      const rows = await db
+        .select({ provider: providersTable, distanceKm: distance })
+        .from(providersTable)
+        .where(
+          and(
+            ...conditions,
+            isNotNull(providersTable.lat),
+            isNotNull(providersTable.lng),
+            ...reachBox(point),
+            sql`${distance} <= coalesce(${providersTable.deliveryRadiusKm}::float8, ${DEFAULT_DELIVERY_RADIUS_KM}::float8)`,
+          ),
+        )
+        .orderBy(distance, providersTable.id);
+      res.json(rows.map((row) => providerJson(row.provider, { distanceKm: row.distanceKm })));
+      return;
+    }
 
-    res.json(rows.map((p) => mapProvider(p)));
+    const rows = await db.select().from(providersTable).where(and(...conditions));
+    res.json(rows.map((p) => providerJson(p)));
   } catch (err) {
     req.log.error({ err }, "GET /providers error");
     res.status(500).json({ error: "Internal server error" });
@@ -73,6 +182,8 @@ router.post("/providers", requireAuth, async (req: Request, res: Response) => {
   const clerkUserId = (req as any).clerkUserId as string;
   const body = parseBody(CreateProviderBody, req, res);
   if (!body) return;
+  const location = locationFields(body, res);
+  if (!location) return;
 
   try {
     // Check if user already has a provider
@@ -99,12 +210,12 @@ router.post("/providers", requireAuth, async (req: Request, res: Response) => {
         email: body.email ?? null,
         category: body.category ?? null,
         openingHours: body.openingHours ?? null,
-        deliveryRadius: body.deliveryRadius ?? null,
+        ...location,
         planId: "starter",
       })
       .returning();
 
-    res.status(201).json(mapProvider(provider));
+    res.status(201).json(providerJson(provider));
   } catch (err) {
     req.log.error({ err }, "POST /providers error");
     res.status(500).json({ error: "Internal server error" });
@@ -125,7 +236,7 @@ router.get("/providers/me", requireAuth, async (req: Request, res: Response) => 
       res.status(404).json({ error: "No provider profile found" });
       return;
     }
-    res.json(mapProvider(provider));
+    res.json(providerJson(provider));
   } catch (err) {
     req.log.error({ err }, "GET /providers/me error");
     res.status(500).json({ error: "Internal server error" });
@@ -138,11 +249,14 @@ router.patch("/providers/me", requireAuth, async (req: Request, res: Response) =
   // Only the fields an owner may edit get through; rating, verification, plan and owner are dropped.
   const body = parseBody(UpdateMyProviderBody, req, res);
   if (!body) return;
+  const location = locationFields(body, res);
+  if (!location) return;
+  const { lat: _lat, lng: _lng, deliveryRadiusKm: _radius, ...details } = body;
 
   try {
     const [provider] = await db
       .update(providersTable)
-      .set({ ...body, updatedAt: new Date() })
+      .set({ ...details, ...location, updatedAt: new Date() })
       .where(eq(providersTable.userId, clerkUserId))
       .returning();
 
@@ -150,7 +264,7 @@ router.patch("/providers/me", requireAuth, async (req: Request, res: Response) =
       res.status(404).json({ error: "Provider not found" });
       return;
     }
-    res.json(mapProvider(provider));
+    res.json(providerJson(provider));
   } catch (err) {
     req.log.error({ err }, "PATCH /providers/me error");
     res.status(500).json({ error: "Internal server error" });
@@ -341,7 +455,7 @@ router.get("/providers/:providerId", async (req: Request, res: Response) => {
       res.status(404).json({ error: "Provider not found" });
       return;
     }
-    res.json(mapProvider(provider));
+    res.json(providerJson(provider));
   } catch (err) {
     req.log.error({ err }, "GET /providers/:id error");
     res.status(500).json({ error: "Internal server error" });

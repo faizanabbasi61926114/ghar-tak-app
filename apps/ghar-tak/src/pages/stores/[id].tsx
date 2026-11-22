@@ -6,6 +6,7 @@ import {
   type Product, type Service,
 } from '@workspace/api-client-react';
 import ProductCard from '@/components/shared/ProductCard';
+import DeliveryReach from '@/components/shared/DeliveryReach';
 import { EditShopDialog, ProductFormDialog, ServiceFormDialog } from '@/components/shared/StoreManageDialogs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,14 +24,22 @@ import { Textarea } from '@/components/ui/textarea';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/hooks/use-toast';
-import { apiErrorReason } from '@/lib/api-error';
+import { apiErrorReason, couldNotLoad } from '@/lib/api-error';
+import LoadError from '@/components/shared/LoadError';
 import { useUser } from '@clerk/react';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function StoreDetailPage({ params }: { params: { id: string } }) {
   const { user } = useUser();
-  const { data: store, isLoading: storeLoading } = useGetProvider(params.id, { query: { enabled: !!params.id, queryKey: getGetProviderQueryKey(params.id) } });
+  const {
+    data: store,
+    isLoading: storeLoading,
+    isError: storeFailed,
+    error: storeError,
+    isFetching: storeFetching,
+    refetch: refetchStore,
+  } = useGetProvider(params.id, { query: { enabled: !!params.id, queryKey: getGetProviderQueryKey(params.id) } });
   const { data: products, isLoading: productsLoading } = useListProviderProducts(params.id, undefined, { query: { enabled: !!params.id, queryKey: getListProviderProductsQueryKey(params.id) } });
   const { data: services, isLoading: servicesLoading } = useListProviderServices(params.id, { query: { enabled: !!params.id, queryKey: getListProviderServicesQueryKey(params.id) } });
   const { data: reviews, isLoading: reviewsLoading } = useListProviderReviews(params.id, { query: { enabled: !!params.id, queryKey: getListProviderReviewsQueryKey(params.id) } });
@@ -155,6 +164,9 @@ export default function StoreDetailPage({ params }: { params: { id: string } }) 
   }
 
   if (!store) {
+    if (storeFailed && couldNotLoad(storeError)) {
+      return <LoadError what="store" retrying={storeFetching} onRetry={() => void refetchStore()} />;
+    }
     return (
       <div className="text-center py-10">
         <h1 className="text-2xl font-bold">Store not found</h1>
@@ -228,19 +240,20 @@ export default function StoreDetailPage({ params }: { params: { id: string } }) 
           <div className="flex flex-col md:flex-row md:items-start justify-between">
             <div className="flex-grow">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <CardTitle className="text-3xl font-bold font-headline">{store.name}</CardTitle>
+                <CardTitle dir="auto" className="text-3xl font-bold font-headline min-w-0 [overflow-wrap:anywhere]">{store.name}</CardTitle>
                 <Badge variant="outline">{store.category || 'General'}</Badge>
                 <Badge className={store.isOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}>
                   {store.isOpen ? "Open" : "Closed"}
                 </Badge>
               </div>
-              <CardDescription className="text-muted-foreground mb-3 max-w-2xl">{store.description}</CardDescription>
+              <CardDescription dir="auto" className="text-muted-foreground mb-3 max-w-2xl [overflow-wrap:anywhere]">{store.description}</CardDescription>
             </div>
             <div className="text-sm text-muted-foreground space-y-1 md:text-right mt-4 md:mt-0 flex-shrink-0 md:pl-6">
               <div className="flex items-center md:justify-end">
                 <MapPin className="h-4 w-4 mr-2 text-primary flex-shrink-0" />
-                <span>{store.address || 'Location not specified'}</span>
+                <span className="min-w-0 [overflow-wrap:anywhere]" dir="auto">{store.address || 'Location not specified'}</span>
               </div>
+              <DeliveryReach provider={store} className="md:justify-end" />
               {store.phone && (
                 <div className="flex items-center md:justify-end">
                   <Phone className="h-4 w-4 mr-2 text-primary flex-shrink-0" />
